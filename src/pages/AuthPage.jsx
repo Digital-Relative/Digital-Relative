@@ -2,24 +2,36 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 
+function TreeLogo({ size = 60 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <g transform="translate(50,58)">
+        <rect x="-4" y="6" width="8" height="24" rx="2" fill="#c9a84c"/>
+        <path d="M-4,30 Q-11,36 -18,32 M4,30 Q11,36 18,32 M0,30 L0,36" fill="none" stroke="#c9a84c" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M0,6 L0,-5 M0,0 L-16,-14 M0,0 L16,-14 M-16,-14 L-26,-26 M-16,-14 L-10,-28 M16,-14 L26,-26 M16,-14 L10,-28 M0,-5 L-6,-21 M0,-5 L6,-21" fill="none" stroke="#c9a84c" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="-26" cy="-30" r="6" fill="#c9a84c"/>
+        <circle cx="-10" cy="-32" r="5" fill="#c9a84c" opacity="0.85"/>
+        <circle cx="26" cy="-30" r="6" fill="#c9a84c"/>
+        <circle cx="10" cy="-32" r="5" fill="#c9a84c" opacity="0.85"/>
+        <circle cx="-6" cy="-25" r="4" fill="#c9a84c" opacity="0.9"/>
+        <circle cx="6" cy="-25" r="4" fill="#c9a84c" opacity="0.9"/>
+        <circle cx="0" cy="-38" r="7" fill="#c9a84c"/>
+      </g>
+    </svg>
+  )
+}
+
 export default function AuthPage() {
   const { signIn, signUp } = useAuth()
-  const [mode, setMode]       = useState('signin') // 'signin' | 'signup'
+  const [mode, setMode]       = useState('signin')
   const [loading, setLoading] = useState(false)
   const [form, setForm]       = useState({ email: '', password: '', fullName: '', confirmPassword: '' })
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (mode === 'signup' && form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match')
-      return
-    }
-    if (form.password.length < 8) {
-      toast.error('Password must be at least 8 characters')
-      return
-    }
+    if (mode === 'signup' && form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return }
+    if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return }
     setLoading(true)
     try {
       if (mode === 'signin') {
@@ -43,16 +55,15 @@ export default function AuthPage() {
       backgroundImage: 'radial-gradient(ellipse at 20% 50%, rgba(201,168,76,0.04) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(26,51,80,0.6) 0%, transparent 60%)',
     }}>
       <div style={{ width: 420, maxWidth: '92vw' }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 36, fontWeight: 600, color: 'var(--gold)' }}>Digital Relative</div>
-          <div style={{ fontSize: 11, color: 'var(--text-sub)', letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 4 }}>
-           Your family's digital safety net
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <TreeLogo size={64} />
           </div>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 600, color: 'var(--gold)', lineHeight: 1 }}>Digital Relative</div>
+          <div style={{ fontSize: 11, color: 'var(--text-sub)', letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 6 }}>Secure Legacy Vault</div>
         </div>
 
         <div className="card-static fade-up" style={{ padding: '32px' }}>
-          {/* Tabs */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: 'rgba(255,255,255,0.04)', borderRadius: 'var(--r)', padding: 4 }}>
             {['signin', 'signup'].map(m => (
               <button key={m} onClick={() => setMode(m)} style={{
@@ -70,34 +81,28 @@ export default function AuthPage() {
             {mode === 'signup' && (
               <div>
                 <label className="label">Full name</label>
-                <input className="input" type="text" placeholder="Jane Smith" value={form.fullName}
-                  onChange={e => set('fullName', e.target.value)} required />
+                <input className="input" type="text" placeholder="Jane Smith" value={form.fullName} onChange={e => set('fullName', e.target.value)} required />
               </div>
             )}
             <div>
               <label className="label">Email address</label>
-              <input className="input" type="email" placeholder="you@email.com" value={form.email}
-                onChange={e => set('email', e.target.value)} required />
+              <input className="input" type="email" placeholder="you@email.com" value={form.email} onChange={e => set('email', e.target.value)} required />
             </div>
             <div>
               <label className="label">Password {mode === 'signup' && '(min. 8 characters)'}</label>
-              <input className="input" type="password" placeholder="••••••••" value={form.password}
-                onChange={e => set('password', e.target.value)} required />
+              <input className="input" type="password" placeholder="••••••••" value={form.password} onChange={e => set('password', e.target.value)} required />
             </div>
             {mode === 'signup' && (
               <div>
                 <label className="label">Confirm password</label>
-                <input className="input" type="password" placeholder="••••••••" value={form.confirmPassword}
-                  onChange={e => set('confirmPassword', e.target.value)} required />
+                <input className="input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set('confirmPassword', e.target.value)} required />
               </div>
             )}
-
             {mode === 'signup' && (
               <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.6, padding: '10px 12px', background: 'var(--gold-dim)', borderRadius: 'var(--r)', border: '1px solid var(--gold-border)' }}>
                 🔒 Your vault is encrypted with your password before leaving your device. We never have access to your data.
               </div>
             )}
-
             <button className="btn-primary" type="submit" disabled={loading} style={{ marginTop: 4, width: '100%', padding: '12px' }}>
               {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : mode === 'signin' ? 'Sign in' : 'Create account'}
             </button>
