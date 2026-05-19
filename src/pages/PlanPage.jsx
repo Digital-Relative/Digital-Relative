@@ -48,7 +48,7 @@ export default function PlanPage() {
     try {
       // Create checkout session via Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId, userId: user.id, successUrl: window.location.origin + '/app?success=true', cancelUrl: window.location.origin + '/app?cancelled=true' },
+        body: { priceId, userId: user.id, successUrl: window.location.origin + '/?success=true', cancelUrl: window.location.origin + '/?cancelled=true' },
       })
       if (error) throw error
       // redirect directly using session URL

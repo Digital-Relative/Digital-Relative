@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Sidebar from './components/Sidebar'
@@ -14,6 +14,19 @@ import './index.css'
 function AppInner() {
   const { user, loading } = useAuth()
   const [page, setPage] = useState('dashboard')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success')) {
+      toast.success('Payment successful — welcome to your new plan!')
+      setPage('plan')
+      window.history.replaceState({}, '', '/')
+    }
+    if (params.get('cancelled')) {
+      toast('Payment cancelled')
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
 
   if (loading) {
     return (
