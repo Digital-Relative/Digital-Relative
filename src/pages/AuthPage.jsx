@@ -45,9 +45,9 @@ export default function AuthPage() {
       <div style={{ width: 420, maxWidth: '92vw' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 36, fontWeight: 600, color: 'var(--gold)' }}>Legatum</div>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 36, fontWeight: 600, color: 'var(--gold)' }}>Digital Relative</div>
           <div style={{ fontSize: 11, color: 'var(--text-sub)', letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 4 }}>
-            Digital Legacy Vault
+           Your family's digital safety net
           </div>
         </div>
 

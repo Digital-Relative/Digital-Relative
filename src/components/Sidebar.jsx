@@ -26,7 +26,7 @@ export default function Sidebar({ active, onNav }) {
       {/* Logo */}
       <div style={{ padding: '28px 24px 18px' }}>
         <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.01em' }}>
-          Legatum
+          Digital Relative
         </div>
         <div style={{ fontSize: 10, color: 'var(--text-sub)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 3 }}>
           Digital Vault
