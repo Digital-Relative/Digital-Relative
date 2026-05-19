@@ -39,7 +39,7 @@ export default function PlanPage() {
   const currentPlan = profile?.plan || 'free'
 
   async function checkout(priceId, planId) {
-    if (!priceId || priceId.startsWith('price_')) {
+    if (!priceId) {
       // Demo mode — no real Stripe key
       toast('Connect your Stripe keys in .env to enable payments', { icon: 'ℹ️' })
       return
