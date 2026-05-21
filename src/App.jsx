@@ -103,6 +103,18 @@ function AppInner() {
     }
   }, [user, profile])
 
+  // Checkout trigger - must be at top level, not inside renderPage
+  useEffect(() => {
+    if (selectedPlan && pinReady && mfaVerified && user) {
+      setPage('plan')
+      setTimeout(() => {
+        const event = new CustomEvent('dr_trigger_checkout', { detail: selectedPlan })
+        window.dispatchEvent(event)
+        setSelectedPlan(null)
+      }, 500)
+    }
+  }, [selectedPlan, pinReady, mfaVerified, user])
+
   if (loading || transitioning) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--navy)' }}>
@@ -160,17 +172,6 @@ function AppInner() {
       default:              return <Dashboard onNav={setPage} />
     }
   }
-
-  useEffect(() => {
-    if (selectedPlan && pinReady && mfaVerified && user) {
-      setPage('plan')
-      setTimeout(() => {
-        const event = new CustomEvent('dr_trigger_checkout', { detail: selectedPlan })
-        window.dispatchEvent(event)
-        setSelectedPlan(null)
-      }, 500)
-    }
-  }, [selectedPlan, pinReady, mfaVerified, user])
 
   return (
     <div className="layout">
