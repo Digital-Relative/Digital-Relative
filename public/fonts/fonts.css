@@ -1,46 +1,30 @@
-/*
- * Self-hosted font configuration (FIX TP-3)
- *
- * TO COMPLETE THIS FIX:
- * 1. Go to https://gwfh.mranftl.com/fonts (Google Webfonts Helper)
- * 2. Download Cormorant Garamond (weights 400, 500, 600) and DM Sans (300, 400, 500)
- * 3. Place the .woff2 files in this /public/fonts/ directory
- * 4. Uncomment the @font-face rules below
- * 5. Remove the Google Fonts import from index.css
- *
- * Until then, fonts load from Google Fonts. This sends user IPs to Google
- * which is a GDPR concern. Document this in your privacy policy.
- */
-
-/*
 @font-face {
   font-family: 'Cormorant Garamond';
-  src: url('/fonts/cormorant-garamond-v22-latin-regular.woff2') format('woff2');
+  src: url('/fonts/cormorant-garamond-v21-latin-regular.woff2') format('woff2');
   font-weight: 400; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'Cormorant Garamond';
-  src: url('/fonts/cormorant-garamond-v22-latin-500.woff2') format('woff2');
+  src: url('/fonts/cormorant-garamond-v21-latin-500.woff2') format('woff2');
   font-weight: 500; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'Cormorant Garamond';
-  src: url('/fonts/cormorant-garamond-v22-latin-600.woff2') format('woff2');
+  src: url('/fonts/cormorant-garamond-v21-latin-600.woff2') format('woff2');
   font-weight: 600; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'DM Sans';
-  src: url('/fonts/dm-sans-v15-latin-300.woff2') format('woff2');
+  src: url('/fonts/dm-sans-v17-latin-300.woff2') format('woff2');
   font-weight: 300; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'DM Sans';
-  src: url('/fonts/dm-sans-v15-latin-regular.woff2') format('woff2');
+  src: url('/fonts/dm-sans-v17-latin-regular.woff2') format('woff2');
   font-weight: 400; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'DM Sans';
-  src: url('/fonts/dm-sans-v15-latin-500.woff2') format('woff2');
+  src: url('/fonts/dm-sans-v17-latin-500.woff2') format('woff2');
   font-weight: 500; font-style: normal; font-display: swap;
 }
-*/

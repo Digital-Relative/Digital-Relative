@@ -1,5 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
-
+@import '/fonts/fonts.css';
 :root {
   --navy: #0d1b2a; --navy-mid: #0f2035; --navy-lt: #1a3350; --navy-rim: #254d70;
   --gold: #c9a84c; --gold-lt: #e8c96e; --gold-dim: rgba(201,168,76,0.12); --gold-border: rgba(201,168,76,0.25);
