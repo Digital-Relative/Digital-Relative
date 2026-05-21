@@ -35,21 +35,19 @@ async function hashCode(code: string, userId: string): Promise<string> {
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
-
-async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000): Promise<Response> {
-  const ctrl  = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), ms)
-  try { return await fetch(url, { ...opts, signal: ctrl.signal }) }
-  finally { clearTimeout(timer) }
-}
-
-
   if (a.length !== b.length) return false
   const aB = new TextEncoder().encode(a)
   const bB = new TextEncoder().encode(b)
   let diff = 0
   for (let i = 0; i < aB.length; i++) diff |= aB[i] ^ bB[i]
   return diff === 0
+}
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000): Promise<Response> {
+  const ctrl  = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }) }
+  finally { clearTimeout(timer) }
 }
 
 function mfaEmailTemplate(name: string, code: string): string {

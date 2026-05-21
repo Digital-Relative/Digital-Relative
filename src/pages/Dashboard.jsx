@@ -1,19 +1,33 @@
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useVault } from '../hooks/useVault'
 import { useBeneficiaries } from '../hooks/useBeneficiaries'
 import { CATEGORIES } from '../lib/categories'
+import { supabase } from '../lib/supabase'
+import GettingStarted from '../components/GettingStarted'
 
 export default function Dashboard({ onNav }) {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const { entries, loading: vLoading } = useVault()
   const { beneficiaries, loading: bLoading } = useBeneficiaries()
+
+  // For GettingStarted checklist
+  const hasExecutor     = beneficiaries?.some(b => b.is_executor) ?? false
+  const hasCheckin      = !!(profile?.last_checkin) // true once user has checked in at least once
+  const [hasAfterIAmGone, setHasAfterIAmGone] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('after_i_am_gone').select('id').eq('user_id', user.id).limit(1)
+      .then(({ data }) => setHasAfterIAmGone(!!(data && data.length > 0)))
+  }, [user])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const firstName = (profile?.full_name || 'there').split(' ')[0]
 
   const cats = new Set(entries.map(e => e.category)).size
-  const confirmed = beneficiaries.filter(b => b.status === 'confirmed').length
+  const confirmed = beneficiaries.filter(b => ['email_confirmed','id_verified','access_granted'].includes(b.status)).length
 
   const stats = [
     { label: 'Vault entries',   value: vLoading ? '…' : entries.length,       sub: `across ${cats} categories` },
@@ -32,6 +46,14 @@ export default function Dashboard({ onNav }) {
 
   return (
     <div>
+      <GettingStarted
+        onNav={onNav}
+        vaultEntryCount={entries?.length ?? 0}
+        beneficiaryCount={beneficiaries?.length ?? 0}
+        hasExecutor={hasExecutor}
+        hasCheckin={hasCheckin}
+        hasAfterIAmGone={hasAfterIAmGone}
+      />
       <div className="fade-up page-header">
         <h1 className="page-title">{greeting}, {firstName}</h1>
         <p className="page-sub">Your vault is secure and up to date.</p>
@@ -109,7 +131,7 @@ export default function Dashboard({ onNav }) {
                   <div style={{ fontWeight: 500 }}>{b.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{b.relation} · {b.access_level}</div>
                 </div>
-                <span className={`badge badge-${b.status === 'confirmed' ? 'green' : 'muted'}`}>{b.status}</span>
+                <span className={`badge badge-${ b.status === 'access_granted' ? 'gold' : ['email_confirmed','id_verified'].includes(b.status) ? 'green' : ['declined','revoked'].includes(b.status) ? 'danger' : 'muted' }`}>{b.status}</span>
               </div>
             ))}
           </div>

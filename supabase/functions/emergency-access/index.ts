@@ -63,7 +63,7 @@ async function verifyJwt(supabase: any, authHeader: string): Promise<string | nu
   if (!authHeader.startsWith('Bearer ')) return null
   const jwt = authHeader.slice(7)
   try {
-    const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+    const res = await fetchWithTimeout(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! },
     })
     if (!res.ok) return null

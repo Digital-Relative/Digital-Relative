@@ -76,7 +76,7 @@ export default function SharedLinkPage() {
       setContent(decrypted)
       setStage('ready')
     } catch (err) {
-      console.error('Share link error:', err)
+      console.error('Share link error')
       setStage('error')
     } finally {
       setLoading(false)

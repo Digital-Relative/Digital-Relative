@@ -20,6 +20,13 @@ function corsHeaders(origin: string) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000): Promise<Response> {
+  const ctrl  = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }) }
+  finally { clearTimeout(timer) }
+}
+
 serve(async (req) => {
   const origin = req.headers.get('origin') || ''
   const hdrs   = corsHeaders(origin)
@@ -60,7 +67,7 @@ serve(async (req) => {
       .single()
 
     if (stripeKey && profile?.stripe_subscription_id) {
-      await fetch(`https://api.stripe.com/v1/subscriptions/${profile.stripe_subscription_id}`, {
+      await fetchWithTimeout(`https://api.stripe.com/v1/subscriptions/${profile.stripe_subscription_id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${stripeKey}` },
       }).catch(e => console.error('Stripe cancel failed:', e.message))

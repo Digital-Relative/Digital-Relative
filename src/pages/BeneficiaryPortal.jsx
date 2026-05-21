@@ -56,7 +56,7 @@ export default function BeneficiaryPortal() {
       .from('beneficiaries')
       .select('*, profiles:user_id(id)')
       .eq('invite_token', token)
-      .eq('status', 'confirmed')
+      .in('status', ['email_confirmed', 'id_verified', 'access_granted'])
       .single()
 
     if (error || !data) { setStage(STAGES.invalid); return }
@@ -139,12 +139,12 @@ export default function BeneficiaryPortal() {
           setTimeout(() => loadToken(), 3000)
         },
         onError: (error) => {
-          console.error('Onfido error:', error)
+          console.error('Onfido SDK error')
           setVerifyStep('error')
         },
       })
     } catch (err) {
-      console.error('Verification error:', err)
+      console.error('Verification error')
       setVerifyStep('error')
     } finally {
       setLoading(false)

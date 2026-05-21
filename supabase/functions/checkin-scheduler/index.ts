@@ -254,7 +254,7 @@ async function grantVaultAccess(request: any, supabase: any) {
     .from('beneficiaries')
     .select('id, email, name, invite_token, id_verified_at')
     .eq('user_id', vault_owner_id)
-    .in('status', ['email_confirmed', 'id_verified', 'confirmed'])
+    .in('status', ['email_confirmed', 'id_verified'])
 
   const ownerAuth = await supabase.auth.admin.getUserById(vault_owner_id)
   const ownerName = ownerAuth.data?.user?.user_metadata?.full_name || 'Your family member'

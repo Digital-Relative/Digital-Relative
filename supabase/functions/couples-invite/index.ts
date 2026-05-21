@@ -21,6 +21,13 @@ function corsHeaders(origin: string) {
 }
 
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000): Promise<Response> {
+  const ctrl  = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }) }
+  finally { clearTimeout(timer) }
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 serve(async (req) => {
@@ -49,7 +56,7 @@ serve(async (req) => {
 
     // Verify JWT
     const jwt = authHeader.slice(7)
-    const meRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+    const meRes = await fetchWithTimeout(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! },
     })
     if (!meRes.ok) throw new Error('Unauthorised')
@@ -79,7 +86,7 @@ serve(async (req) => {
 
     // FIX EF-NEW-1 + TP-NEW-1: Look up by email via auth admin API directly
     // DO NOT use listUsers() — it loads all users
-    const emailLookupRes = await fetch(
+    const emailLookupRes = await fetchWithTimeout(
       `${Deno.env.get('SUPABASE_URL')}/auth/v1/admin/users?email=${encodeURIComponent(partnerEmail)}`,
       { headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! } }
     )
@@ -152,7 +159,7 @@ serve(async (req) => {
       // Credit calculation for partner with existing Single plan
       let creditInfo = null
       if (partnerProfile?.plan === 'single' && partnerProfile?.stripe_subscription_id) {
-        const subRes = await fetch(
+        const subRes = await fetchWithTimeout(
           `https://api.stripe.com/v1/subscriptions/${partnerProfile.stripe_subscription_id}`,
           { headers: { 'Authorization': `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}` } }
         )

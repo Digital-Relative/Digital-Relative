@@ -676,3 +676,8 @@ create table if not exists public.mfa_recovery_codes (
 create index if not exists mfa_recovery_codes_user_id_idx on public.mfa_recovery_codes(user_id);
 alter table public.mfa_recovery_codes enable row level security;
 -- No direct client access — all via service role through edge function
+
+-- ── Getting started checklist dismissal ──────────────────────────────────────
+alter table public.profiles
+  add column if not exists getting_started_dismissed boolean not null default false,
+  add column if not exists getting_started_done_items text[] not null default '{}';
