@@ -17,6 +17,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
   const [loading, setLoading]     = useState(false)
   const [codeSent, setCodeSent]   = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState(null) // shown once after setup
+  const [showManual, setShowManual]       = useState(false) // toggle QR vs manual key entry
 
   const isOAuth = user?.app_metadata?.provider === 'google' ||
                   user?.app_metadata?.provider === 'apple'
@@ -33,8 +34,20 @@ export default function MfaSetup({ onComplete, onSignOut }) {
   }
 
   async function startAppSetup() {
+    // If we already have a QR code in state (user switched away and came back)
+    // don't re-enroll — just show the existing QR code
+    if (qrCode && factorId && step === 'app_setup') return
+
     setLoading(true)
     try {
+      // Clean up any existing unverified TOTP factors first
+      // These accumulate if setup was started but not completed
+      const { data: existing } = await supabase.auth.mfa.listFactors()
+      const unverified = existing?.totp?.filter(f => f.status === 'unverified') || []
+      for (const f of unverified) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {})
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         issuer: 'Digital Relative',
@@ -189,31 +202,94 @@ export default function MfaSetup({ onComplete, onSignOut }) {
           {/* APP SETUP */}
           {step === 'app_setup' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
-                <strong style={{ color: 'var(--text)' }}>Step 1:</strong> Download Google Authenticator, Authy, or 1Password if you haven't already.<br />
-                <strong style={{ color: 'var(--text)' }}>Step 2:</strong> Scan this QR code with the app.
-              </div>
-              {qrCode && (
-                <div style={{ textAlign: 'center' }}>
-                  <img src={qrCode} alt="MFA QR Code" style={{ width: 180, height: 180, borderRadius: 8, border: '1px solid var(--border)' }} />
+
+              {/* Step 1 */}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--gold)', color: '#0d1b2a', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>1</div>
+                <div style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
+                  Open your authenticator app — <strong style={{ color: 'var(--text)' }}>Google Authenticator</strong>, <strong style={{ color: 'var(--text)' }}>Authy</strong>, or <strong style={{ color: 'var(--text)' }}>1Password</strong>.<br />
+                  Don't have one? Download Google Authenticator from the App Store or Play Store.
                 </div>
-              )}
-              {secret && (
-                <div style={{ fontSize: 11, color: 'var(--text-sub)', textAlign: 'center' }}>
-                  Can't scan? Manual key: <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>{secret}</code>
-                </div>
-              )}
-              <div>
-                <label className="label">Step 3: Enter the 6-digit code from the app</label>
-                <input className="input" type="text" inputMode="numeric" placeholder="000000"
-                  value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  style={{ textAlign: 'center', fontSize: 24, letterSpacing: '0.3em', padding: 16 }}
-                  autoFocus maxLength={6} />
               </div>
+
+              {/* Step 2 — QR or manual */}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--gold)', color: '#0d1b2a', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>2</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 12 }}>
+                    Choose how to add the account to your app:
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <button onClick={() => setShowManual(false)} style={{
+                      flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--sans)',
+                      background: !showManual ? 'var(--gold-dim)' : 'transparent',
+                      color: !showManual ? 'var(--gold)' : 'var(--text-sub)',
+                      border: !showManual ? '1px solid var(--gold-border)' : '1px solid var(--border)',
+                    }}>📷 Scan QR code</button>
+                    <button onClick={() => setShowManual(true)} style={{
+                      flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--sans)',
+                      background: showManual ? 'var(--gold-dim)' : 'transparent',
+                      color: showManual ? 'var(--gold)' : 'var(--text-sub)',
+                      border: showManual ? '1px solid var(--gold-border)' : '1px solid var(--border)',
+                    }}>⌨️ Enter key manually</button>
+                  </div>
+
+                  {!showManual ? (
+                    <>
+                      {qrCode && (
+                        <div style={{ textAlign: 'center', padding: '12px', background: 'white', borderRadius: 8, display: 'inline-block' }}>
+                          <img src={qrCode} alt="MFA QR Code" style={{ width: 180, height: 180, display: 'block' }} />
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 8, lineHeight: 1.6 }}>
+                        In your authenticator app, tap <strong style={{ color: 'var(--text)' }}>+</strong> or <strong style={{ color: 'var(--text)' }}>Add account</strong>, then choose <strong style={{ color: 'var(--text)' }}>Scan QR code</strong>.
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 8, lineHeight: 1.6 }}>
+                        In your authenticator app, tap <strong style={{ color: 'var(--text)' }}>+</strong> → <strong style={{ color: 'var(--text)' }}>Enter a setup key</strong>. Then type:
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 4 }}>Account name: <strong style={{ color: 'var(--text)' }}>Digital Relative</strong></div>
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 8 }}>Key:</div>
+                      {secret && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <code style={{
+                            flex: 1, background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 6,
+                            fontSize: 15, color: 'var(--gold)', letterSpacing: '0.15em', fontFamily: 'monospace',
+                            wordBreak: 'break-all', lineHeight: 1.8,
+                          }}>{secret}</code>
+                          <button onClick={() => { navigator.clipboard.writeText(secret); toast.success('Key copied') }} style={{
+                            background: 'transparent', border: '1px solid var(--border-md)', borderRadius: 6,
+                            color: 'var(--text-sub)', cursor: 'pointer', padding: '8px 10px', fontSize: 12, fontFamily: 'var(--sans)',
+                            flexShrink: 0,
+                          }}>Copy</button>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 8 }}>
+                        Key type: <strong style={{ color: 'var(--text)' }}>Time based (TOTP)</strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--gold)', color: '#0d1b2a', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>3</div>
+                <div style={{ flex: 1 }}>
+                  <label className="label" style={{ marginBottom: 8, display: 'block' }}>Enter the 6-digit code shown in your app</label>
+                  <input className="input" type="text" inputMode="numeric" placeholder="000000"
+                    value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    style={{ textAlign: 'center', fontSize: 24, letterSpacing: '0.3em', padding: 16 }}
+                    maxLength={6} />
+                </div>
+              </div>
+
               <button className="btn-primary" onClick={verifyApp} disabled={loading || code.length !== 6} style={{ padding: 14 }}>
                 {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Confirm and activate'}
               </button>
-              <button type="button" className="btn-ghost" onClick={() => { setStep('choose'); setCode('') }}>
+              <button type="button" className="btn-ghost" onClick={() => { setStep('choose'); setCode(''); setQrCode(null); setSecret(null); setFactorId(null) }}>
                 ← Back
               </button>
             </div>
