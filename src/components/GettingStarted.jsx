@@ -47,10 +47,28 @@ const CHECKLIST = [
     id: 'after_i_am_gone',
     icon: '💛',
     title: 'Complete your After I\'m Gone guide',
-    detail: 'Leave personal instructions for your family — funeral wishes, messages, what to do first. This is often the most important thing you can leave behind.',
+    detail: 'Leave personal instructions for your family - funeral wishes, messages, what to do first. This is often the most important thing you can leave behind.',
     action: 'afteriamgone',
     actionLabel: 'Start the guide',
     critical: true,
+  },
+  {
+    id: 'personal_message',
+    icon: '✉️',
+    title: 'Write a personal message to your family',
+    detail: 'A letter or message in your own words. Often more meaningful than any list of instructions. Takes 5 minutes and means everything.',
+    action: 'afteriamgone',
+    actionLabel: 'Write message',
+    critical: false,
+  },
+  {
+    id: 'funeral_wishes',
+    icon: '🌿',
+    title: 'Record your funeral wishes',
+    detail: 'Even brief notes - burial or cremation, a song you\'d like - relieve an enormous burden from your family at the hardest time.',
+    action: 'afteriamgone',
+    actionLabel: 'Record wishes',
+    critical: false,
   },
   {
     id: 'checkin',
@@ -268,7 +286,7 @@ export default function GettingStarted({ onNav, vaultEntryCount = 0, beneficiary
           {/* Critical items */}
           <div style={{ marginTop: 16, marginBottom: 8 }}>
             <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 10 }}>
-              Essential — do these first
+              Essential - do these first
             </div>
             {criticalItems.map(item => (
               <ChecklistRow key={item.id} item={item} done={isDone(item.id)}

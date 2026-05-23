@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import AddressLookup from '../components/AddressLookup'
 import { useAuth } from '../context/AuthContext'
 import { DEFAULT_GUIDE_SECTIONS } from '../lib/afterIamGone'
 import toast from 'react-hot-toast'
@@ -73,7 +74,7 @@ function StepCard({ step, sectionId, onToggleRequired, onEditDetail, isOwner }) 
   )
 }
 
-// Beneficiary view — clean checklist mode
+// Beneficiary view - clean checklist mode
 function BeneficiaryView({ sections }) {
   const [checked, setChecked] = useState({})
   const requiredSteps = sections.flatMap(s => s.steps.filter(st => st.required))
@@ -152,12 +153,17 @@ function BeneficiaryView({ sections }) {
   )
 }
 
-export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSections = null }) {
+export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSections = null, overridePersonalMessage = null, overrideFuneralWishes = null }) {
   const { user } = useAuth()
-  const [sections, setSections] = useState(DEFAULT_GUIDE_SECTIONS)
-  const [saving, setSaving]     = useState(false)
-  const [loaded, setLoaded]     = useState(false)
-  const [activeSection, setActiveSection] = useState(DEFAULT_GUIDE_SECTIONS[0].id)
+  const [sections, setSections]       = useState(DEFAULT_GUIDE_SECTIONS)
+  const [saving, setSaving]           = useState(false)
+  const [loaded, setLoaded]           = useState(false)
+  const [activeSection, setActiveSection] = useState('message')
+  const [personalMessage, setPersonalMessage] = useState('')
+  const [funeralWishes, setFuneralWishes]     = useState({
+    type: '', music: '', readings: '', funeralHome: '', otherWishes: '',
+  })
+  const [msgSaving, setMsgSaving] = useState(false)
 
   useEffect(() => {
     async function loadGuide() {
@@ -173,6 +179,8 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
       } else if (data?.guide_data?.sections) {
         setSections(data.guide_data.sections)
       }
+      if (data?.guide_data?.personalMessage !== undefined) setPersonalMessage(data.guide_data.personalMessage || '')
+      if (data?.guide_data?.funeralWishes) setFuneralWishes(data.guide_data.funeralWishes)
       setLoaded(true)
     }
     loadGuide()
@@ -183,11 +191,26 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
     try {
       await supabase.from('after_i_am_gone').upsert({
         user_id: user.id,
-        guide_data: { sections: newSections, updated_at: new Date().toISOString() },
+        guide_data: { sections: newSections, personalMessage, funeralWishes, updated_at: new Date().toISOString() },
       }, { onConflict: 'user_id' })
       toast.success('Guide saved')
     } catch { toast.error('Failed to save') }
     finally { setSaving(false) }
+  }
+
+  async function saveMessage() {
+    setMsgSaving(true)
+    try {
+      // Fetch current sections to preserve them
+      const { data } = await supabase.from('after_i_am_gone').select('guide_data').eq('user_id', user.id).single()
+      const currentSections = data?.guide_data?.sections || sections
+      await supabase.from('after_i_am_gone').upsert({
+        user_id: user.id,
+        guide_data: { sections: currentSections, personalMessage, funeralWishes, updated_at: new Date().toISOString() },
+      }, { onConflict: 'user_id' })
+      toast.success('Saved')
+    } catch { toast.error('Failed to save') }
+    finally { setMsgSaving(false) }
   }
 
   function toggleRequired(sectionId, stepId) {
@@ -209,12 +232,30 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
   }
 
   if (isBeneficiaryView) {
+    const msgToShow      = overridePersonalMessage !== null ? overridePersonalMessage : personalMessage
+    const wishesToShow   = overrideFuneralWishes !== null ? overrideFuneralWishes : funeralWishes
     return (
       <div>
         <div className="fade-up page-header">
           <h1 className="page-title" style={{ fontSize: 28 }}>What to do now</h1>
           <p className="page-sub">A step-by-step guide prepared for you</p>
         </div>
+        {msgToShow && (
+          <div className="card-static fade-up-2" style={{ marginBottom: 18, borderColor: 'var(--gold-border)', background: 'var(--gold-dim)' }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--gold)', marginBottom: 10 }}>A message for you</div>
+            <p style={{ fontSize: 14, color: 'var(--cream-dim)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{msgToShow}</p>
+          </div>
+        )}
+        {wishesToShow && (wishesToShow.type || wishesToShow.music || wishesToShow.readings || wishesToShow.otherWishes) && (
+          <div className="card-static fade-up-2" style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--cream)', marginBottom: 12 }}>🌿 Funeral wishes</div>
+            {wishesToShow.type && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Burial/cremation: </span><strong>{wishesToShow.type}</strong></div>}
+            {wishesToShow.music && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Music: </span>{wishesToShow.music}</div>}
+            {wishesToShow.readings && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Readings: </span>{wishesToShow.readings}</div>}
+            {wishesToShow.funeralHome && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Funeral home: </span>{wishesToShow.funeralHome}</div>}
+            {wishesToShow.otherWishes && <div><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Other wishes: </span>{wishesToShow.otherWishes}</div>}
+          </div>
+        )}
         <BeneficiaryView sections={sections} />
       </div>
     )
@@ -222,6 +263,11 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
 
   const currentSection = sections.find(s => s.id === activeSection)
   const includedCount  = sections.flatMap(s => s.steps.filter(st => st.required)).length
+  const allTabs = [
+    { id: 'message',  label: '💛 Personal message' },
+    { id: 'funeral',  label: '🌿 Funeral wishes' },
+    ...sections.map(s => ({ id: s.id, label: s.title })),
+  ]
 
   return (
     <div>
@@ -234,7 +280,7 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
       <div className="fade-up-2 card-static" style={{ borderColor: 'var(--gold-border)', background: 'var(--gold-dim)', marginBottom: 24 }}>
         <h3 style={{ fontFamily: 'var(--serif)', fontSize: 17, color: 'var(--gold)', marginBottom: 8 }}>How this works</h3>
         <p style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7 }}>
-          We've prepared a complete step-by-step guide covering everything your family will need to do — from registering the death to cancelling subscriptions. Review each section, mark steps as included or excluded, and personalise the details. Your beneficiaries will see this as a clean, easy-to-follow checklist when they unlock the vault.
+          We've prepared a complete step-by-step guide covering everything your family will need to do - from registering the death to cancelling subscriptions. Review each section, mark steps as included or excluded, and personalise the details. Your beneficiaries will see this as a clean, easy-to-follow checklist when they unlock the vault.
         </p>
         <div style={{ marginTop: 12, fontSize: 13, color: 'var(--gold)' }}>
           {includedCount} steps currently included
@@ -271,6 +317,86 @@ export default function AfterIAmGonePage({ isBeneficiaryView = false, overrideSe
             <span style={{ fontSize: 24 }}>{currentSection?.icon}</span>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)' }}>{currentSection?.title}</h2>
           </div>
+
+          {/* Feature 7: Personal message */}
+          {activeSection === 'message' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 8 }}>A message to your loved ones</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+                Write whatever you'd like your family to read. This appears at the top of the guide your beneficiaries see.
+              </p>
+              <textarea
+                value={personalMessage}
+                onChange={e => setPersonalMessage(e.target.value)}
+                placeholder="Dear family, I hope this guide helps you through a difficult time..."
+                className="input"
+                style={{ minHeight: 220, resize: 'vertical', lineHeight: 1.8, fontSize: 14, width: '100%' }}
+              />
+              <button className="btn-primary" onClick={saveMessage} disabled={msgSaving} style={{ marginTop: 12 }}>
+                {msgSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Save message'}
+              </button>
+            </div>
+          )}
+
+          {/* Feature 8: Funeral wishes */}
+          {activeSection === 'funeral' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 8 }}>Funeral wishes</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 18, lineHeight: 1.7 }}>
+                These are optional but can relieve an enormous burden from your family. Even brief notes help.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label className="label">Burial or cremation</label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                    {['Burial', 'Cremation', 'No preference', 'Other'].map(opt => (
+                      <button key={opt} onClick={() => setFuneralWishes(f => ({ ...f, type: opt }))} style={{
+                        padding: '7px 14px', borderRadius: 'var(--r)', fontSize: 13, cursor: 'pointer',
+                        background: funeralWishes.type === opt ? 'var(--gold)' : 'transparent',
+                        color: funeralWishes.type === opt ? '#0d1b2a' : 'var(--text-sub)',
+                        border: funeralWishes.type === opt ? 'none' : '1px solid var(--border-md)',
+                        fontFamily: 'var(--sans)',
+                      }}>{opt}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Music requests</label>
+                  <input className="input" placeholder="e.g. Time to Say Goodbye, Amazing Grace" value={funeralWishes.music}
+                    onChange={e => setFuneralWishes(f => ({ ...f, music: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Readings or poems</label>
+                  <input className="input" placeholder="e.g. Do Not Stand at My Grave and Weep" value={funeralWishes.readings}
+                    onChange={e => setFuneralWishes(f => ({ ...f, readings: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Preferred funeral home (optional)</label>
+                  <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 6 }}>
+                    Search by postcode, or type the name and address
+                  </div>
+                  <AddressLookup
+                    value={funeralWishes.funeralHome}
+                    onChange={v => setFuneralWishes(f => ({ ...f, funeralHome: v }))}
+                    placeholder="Enter postcode to find funeral home…"
+                  />
+                </div>
+                <div>
+                  <label className="label">Any other wishes</label>
+                  <textarea className="input" placeholder="e.g. I'd like a small gathering, flowers from the garden..." value={funeralWishes.otherWishes}
+                    onChange={e => setFuneralWishes(f => ({ ...f, otherWishes: e.target.value }))} style={{ minHeight: 80, resize: 'vertical' }} />
+                </div>
+                <button className="btn-primary" onClick={saveMessage} disabled={msgSaving}>
+                  {msgSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Save funeral wishes'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {currentSection && activeSection !== 'message' && activeSection !== 'funeral' && (
+            <div style={{ display: 'none' }} />
+          )}
+
           {currentSection?.steps.map(step => (
             <StepCard key={step.id}
               step={step}

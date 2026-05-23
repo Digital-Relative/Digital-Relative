@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useVault } from '../hooks/useVault'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES } from '../lib/categories'
+import AddressLookup from '../components/AddressLookup'
 import { PLANS } from '../lib/stripe'
-import { searchCompanies } from '../lib/companies'
+import { searchCompanies, UK_COMPANIES } from '../lib/companies'
 import { validateVaultTitle } from '../lib/validation'
 import PasswordReveal from '../components/PasswordReveal'
 import ShareModal from '../components/ShareModal'
@@ -96,6 +97,7 @@ function CompanySearch({ value, onChange, onSelect }) {
 function EntryModal({ entry, onClose, onSave, onDelete }) {
   const isEdit = !!entry?.id
   const [form, setForm] = useState(entry || {
+    address: '',
     category: 'banking', title: '', username: '', password: '', notes: '',
     expiry_date: '', expiry_reminder_days: [30],
   })
@@ -104,32 +106,15 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   function handleCompanySelect(company) {
-    setForm(f => {
-      // Build bereavement info to append to notes if available
-      let bereaveAppend = ''
-      if (company.bereavePhone || company.bereaveUrl) {
-        bereaveAppend = '\n\nBereavement contact for ' + company.name + ':'
-        if (company.bereaveNote) bereaveAppend += '\n' + company.bereaveNote
-        if (company.bereavePhone) bereaveAppend += '\nPhone: ' + company.bereavePhone
-        if (company.bereaveUrl) bereaveAppend += '\nMore info: ' + company.bereaveUrl
-      }
-
-      // Only append if notes doesn't already contain bereavement info
-      const existingNotes = f.notes || ''
-      const newNotes = bereaveAppend && !existingNotes.includes('Bereavement contact')
-        ? existingNotes + bereaveAppend
-        : existingNotes
-
-      return {
-        ...f,
-        title: company.name,
-        category: company.category,
-        notes: newNotes,
-        _bereavePhone: company.bereavePhone || '',
-        _bereaveUrl: company.bereaveUrl || '',
-        _bereaveNote: company.bereaveNote || '',
-      }
-    })
+    setForm(f => ({
+      ...f,
+      title: company.name,
+      category: company.category,
+      // Store bereavement info as separate display-only fields (not in notes)
+      _bereavePhone: company.bereavePhone || '',
+      _bereaveUrl: company.bereaveUrl || '',
+      _bereaveNote: company.bereaveNote || '',
+    }))
   }
 
   function toggleReminder(days) {
@@ -146,19 +131,27 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
     const titleErr = validateVaultTitle(form.title)
     if (titleErr) { toast.error(titleErr); return }
 
-    // Validate expiry date if provided - must be a valid date
-    if (form.expiry_date) {
-      const parsed = new Date(form.expiry_date)
-      if (isNaN(parsed.getTime())) {
-        toast.error('Please enter a valid expiry date or leave it blank')
+    // Validate expiry date - must be YYYY-MM-DD or empty
+    const rawDate = (form.expiry_date || '').trim()
+    if (rawDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        toast.error('Please use the date picker to select a valid date')
+        return
+      }
+      const parsed = new Date(rawDate)
+      if (isNaN(parsed.getTime()) || parsed.getFullYear() > 9999 || parsed.getFullYear() < 1900) {
+        toast.error('Please enter a valid date')
         return
       }
     }
+
     setSaving(true)
     try {
       // Strip display-only fields before saving to DB
       const { _bereavePhone, _bereaveUrl, _bereaveNote, ...saveForm } = form
-      await onSave(saveForm)
+      // Convert empty string to null for the date column
+      const finalForm = { ...saveForm, expiry_date: rawDate || null }
+      await onSave(finalForm)
       onClose()
     }
     catch (e) { toast.error(e.message) }
@@ -168,7 +161,7 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
   const cat = CATEGORIES.find(c => c.id === form.category)
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" style={{ width: 520 }} onClick={e => e.stopPropagation()}>
         <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 20 }}>
           {isEdit ? 'Edit entry' : 'New vault entry'}
@@ -228,6 +221,21 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
             <input className="input" placeholder="e.g. john@email.com or account: 12345678"
               value={form.username} onChange={e => set('username', e.target.value)} />
           </div>
+
+          {/* Address lookup - shown for relevant categories */}
+          {['property', 'medical', 'legal', 'utilities', 'banking', 'insurance', 'other'].includes(form.category) && (
+            <div>
+              <label className="label">Address (optional)</label>
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 6 }}>
+                Helps your family locate this account or premises
+              </div>
+              <AddressLookup
+                value={form.address || ''}
+                onChange={v => set('address', v)}
+                placeholder="Enter postcode to find address…"
+              />
+            </div>
+          )}
 
           {/* Password */}
           <div>
@@ -432,7 +440,12 @@ export default function VaultPage({ onNav }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <span style={{ fontSize: 20 }}>{cat?.icon}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500 }}>{e.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 500 }}>{e.title}</span>
+                    {e.is_shared && (
+                      <span style={{ fontSize: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-border)', color: 'var(--gold)', borderRadius: 4, padding: '1px 6px' }}>Shared</span>
+                    )}
+                  </div>
                       <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{e.username || 'No username stored'}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -472,6 +485,67 @@ export default function VaultPage({ onNav }) {
                           <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{e.notes}</div>
                         </div>
                       )}
+
+                      {e.address && (
+                        <div style={{ marginBottom: 14 }}>
+                          <div className="label" style={{ marginBottom: 4 }}>Address</div>
+                          <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7 }}>{e.address}</div>
+                        </div>
+                      )}
+                      {/* Bereavement contact section - shown if company is in our database */}
+                      {(() => {
+                        const company = UK_COMPANIES.find(c =>
+                          c.name.toLowerCase() === (e.title || '').toLowerCase() ||
+                          (e.title || '').toLowerCase().includes(c.name.toLowerCase())
+                        )
+                        if (!company || (!company.bereavePhone && !company.bereaveUrl)) return null
+                        return (
+                          <div style={{ marginBottom: 14 }}>
+                            <div className="label" style={{ marginBottom: 8 }}>Bereavement contact</div>
+                            <div style={{
+                              background: 'rgba(76,175,130,0.06)', border: '1px solid rgba(76,175,130,0.2)',
+                              borderRadius: 8, padding: '12px 14px',
+                            }}>
+                              {company.bereaveNote && (
+                                <div style={{ fontSize: 12, color: 'var(--cream-dim)', marginBottom: 8, lineHeight: 1.6 }}>
+                                  {company.bereaveNote}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: company.bereaveRequirements ? 10 : 0 }}>
+                                {company.bereavePhone && (
+                                  <a href={`tel:${company.bereavePhone.replace(/\s/g, '')}`}
+                                    onClick={ev => ev.stopPropagation()}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--gold)', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
+                                    📞 {company.bereavePhone}
+                                  </a>
+                                )}
+                                {company.bereaveUrl && (
+                                  <a href={company.bereaveUrl} target="_blank" rel="noopener noreferrer"
+                                    onClick={ev => ev.stopPropagation()}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-sub)', textDecoration: 'none', fontSize: 12 }}>
+                                    🔗 Bereavement support page →
+                                  </a>
+                                )}
+                              </div>
+                              {company.bereaveRequirements && (
+                                <div style={{ borderTop: '1px solid rgba(76,175,130,0.15)', paddingTop: 8, marginTop: 4 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    What they'll need
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {company.bereaveRequirements.map((req, i) => (
+                                      <div key={i} style={{ fontSize: 12, color: 'var(--cream-dim)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                                        <span style={{ color: 'var(--success)', flexShrink: 0 }}>✓</span>
+                                        {req}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
                       {e.expiry_date && (
                         <div style={{ marginBottom: 14 }}>
                           <div className="label" style={{ marginBottom: 4 }}>Expiry</div>

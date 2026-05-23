@@ -13,8 +13,6 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     // Log error for debugging
     console.error('Application error reference:', this.state.errorId)
-    console.error('Error:', error?.message, error?.name)
-    console.error('Component:', info?.componentStack?.split('\n')?.[1]?.trim())
     // Sentry integration (add when you sign up at sentry.io):
     // import * as Sentry from '@sentry/react'
     // Sentry.captureException(error, { extra: { errorId: this.state.errorId } })
@@ -40,7 +38,7 @@ export default class ErrorBoundary extends Component {
               Something went wrong
             </div>
             <div style={{ fontSize: 13, color: '#7a93aa', lineHeight: 1.7, marginBottom: 24 }}>
-              An unexpected error occurred. Your vault data is safe — this is a display error only.
+              An unexpected error occurred. Your vault data is safe - this is a display error only.
               Reference: <code style={{ color: '#c9a84c', fontSize: 11 }}>{this.state.errorId}</code>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>

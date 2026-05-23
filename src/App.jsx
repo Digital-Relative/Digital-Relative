@@ -31,11 +31,16 @@ import EmergencyAccessPage from './pages/EmergencyAccessPage'
 import AdminReviewPage from './pages/AdminReviewPage'
 import BeneficiaryPortal from './pages/BeneficiaryPortal'
 import BeneficiaryDashboard from './pages/BeneficiaryDashboard'
+import AboutPage from './pages/AboutPage'
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+import BlogPage from './pages/BlogPage'
 import './index.css'
+import { isRTL } from './lib/i18n'
 
 // Check if this is a beneficiary portal access
-const isBeneficiaryRoute = window.location.pathname === '/beneficiary' ||
-  (window.location.pathname !== '/share' && new URLSearchParams(window.location.search).has('token'))
+const isBeneficiaryRoute = window.location.pathname === '/beneficiary' &&
+  new URLSearchParams(window.location.search).has('token')
 const isShareRoute = window.location.pathname === '/share' && new URLSearchParams(window.location.search).has('t')
 const isEmergencyRoute = window.location.pathname === '/emergency-access'
 const isAdminRoute = window.location.pathname === '/admin/review'
@@ -59,7 +64,7 @@ function AppInner() {
     if (!user) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('success')) {
-      toast.success('Payment successful — welcome to your new plan!')
+      toast.success('Payment successful - welcome to your new plan!')
       setPage('plan')
       window.history.replaceState({}, '', '/')
       if (fetchProfile && user) {
@@ -68,7 +73,7 @@ function AppInner() {
       }
     }
     if (params.get('cancelled')) {
-      toast('Payment cancelled — you have not been charged')
+      toast('Payment cancelled - you have not been charged')
       window.history.replaceState({}, '', '/')
     }
     const denyRequestId = params.get('deny_request')
@@ -80,15 +85,26 @@ function AppInner() {
           if (!error) {
             toast.success("We've recorded that you're well and denied the access request. Your check-in has been updated.", { duration: 8000 })
           } else {
-            toast.error('Could not process denial — please contact support@digitalrelative.co.uk')
+            toast.error('Could not process denial - please contact support@digitalrelative.co.uk')
           }
         })
     }
   }, [user])
 
+  // Apply language/RTL from profile
+  useEffect(() => {
+    const lang = profile?.preferred_language || 'en'
+    document.documentElement.lang = lang
+    document.documentElement.dir  = isRTL(lang) ? 'rtl' : 'ltr'
+  }, [profile?.preferred_language])
+
   useEffect(() => {
     if (user && profile && pinIsSet(profile) && hasSessionKey()) {
       setPinReady(true)
+      // Log device sign-in and alert if new device
+      supabase.functions.invoke('device-log', {
+        body: { userAgent: navigator.userAgent },
+      }).catch(() => {}) // best-effort, never block the user
       const pendingPlan = sessionStorage.getItem('dr_pending_plan')
       if (pendingPlan) {
         try {
@@ -105,7 +121,10 @@ function AppInner() {
 
   // Checkout trigger - must be at top level, not inside renderPage
   useEffect(() => {
-    if (selectedPlan && pinReady && mfaVerified && user) {
+    // OAuth users skip MFA so treat pinReady as sufficient for them
+    const _isOAuth = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'apple'
+    const readyForCheckout = pinReady && (mfaVerified || _isOAuth)
+    if (selectedPlan && readyForCheckout && user) {
       setPage('plan')
       setTimeout(() => {
         const event = new CustomEvent('dr_trigger_checkout', { detail: selectedPlan })
@@ -169,6 +188,10 @@ function AppInner() {
       case 'sharedlinks':   return <SharedLinksPage />
       case 'plan':          return <PlanPage />
       case 'settings':      return <SettingsPage />
+      case 'about':         return <AboutPage />
+      case 'privacy':        return <PrivacyPage />
+      case 'terms':          return <TermsPage />
+      case 'blog':          return <BlogPage />
       default:              return <Dashboard onNav={setPage} />
     }
   }

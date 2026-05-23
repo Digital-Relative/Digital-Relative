@@ -55,7 +55,7 @@ export default function SharedLinksPage() {
       .eq('user_id', user.id)
     if (error) { toast.error('Failed to revoke'); return }
     setLinks(prev => prev.map(l => l.id === id ? { ...l, revoked: true } : l))
-    toast.success('Link revoked — it can no longer be accessed')
+    toast.success('Link revoked - it can no longer be accessed')
   }
 
   const isExpiredOrRevoked = (l) => l.revoked || new Date(l.expires_at) < new Date() || (l.one_time && l.view_count >= 1)

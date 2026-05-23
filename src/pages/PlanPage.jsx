@@ -100,7 +100,7 @@ export default function PlanPage() {
       name: 'Couples',
       price: couplesAnnual ? '£45' : '£5',
       period: couplesAnnual ? '/year' : '/month',
-      note: couplesAnnual ? 'Best value' : '£45/year — save 25%',
+      note: couplesAnnual ? 'Best value' : '£45/year - save 25%',
       priceId: couplesAnnual ? PLANS.couples.annualPriceId : PLANS.couples.priceId,
       badge: null,
     },
@@ -212,18 +212,34 @@ export default function PlanPage() {
               ))}
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.6, marginBottom: 20 }}>
-              Your data is not deleted — if you upgrade again your vault entries and documents will be accessible again. To cancel your subscription, use the Manage subscription button below.
+              Your data is not deleted - if you upgrade again your vault entries and documents will be accessible again. To cancel your subscription, use the Manage subscription button below.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn-ghost" onClick={() => setShowDowngradeModal(false)} style={{ flex: 1 }}>
                 Keep my current plan
               </button>
               <button className="btn-danger" style={{ flex: 1 }}
+                disabled={loading === 'downgrade'}
                 onClick={async () => {
-                  setShowDowngradeModal(false)
-                  toast('To downgrade, cancel your subscription via Manage subscription. Your plan will revert to Free at the end of your billing period.')
+                  setLoading('downgrade')
+                  try {
+                    // Open Stripe portal directly to cancel
+                    const { data, error } = await supabase.functions.invoke('create-portal', {
+                      body: { userId: user.id, returnUrl: window.location.origin + '/?page=plan' }
+                    })
+                    if (error || !data?.url) throw new Error('Could not open billing portal')
+                    if (!data.url.startsWith('https://billing.stripe.com/')) throw new Error('Invalid portal URL')
+                    setShowDowngradeModal(false)
+                    toast('Redirecting to cancel your subscription. Your plan reverts to Free at the end of your billing period.', { duration: 4000 })
+                    window.location.href = data.url
+                  } catch {
+                    toast.error('Could not open billing portal - try the Manage subscription button below')
+                    setShowDowngradeModal(false)
+                  } finally {
+                    setLoading('')
+                  }
                 }}>
-                I understand — downgrade
+                {loading === 'downgrade' ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Cancel subscription →'}
               </button>
             </div>
           </div>
@@ -252,6 +268,7 @@ export default function PlanPage() {
               try {
                 const { data, error } = await supabase.functions.invoke('create-portal', { body: { userId: user.id } })
                 if (error || !data?.url) { toast.error('Could not open billing portal'); return }
+                if (!data.url.startsWith('https://billing.stripe.com/')) { toast.error('Invalid portal URL'); return }
                 window.location.href = data.url
               } catch { toast.error('Could not open billing portal') }
             }}>

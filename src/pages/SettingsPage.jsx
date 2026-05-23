@@ -18,15 +18,30 @@ export default function SettingsPage() {
   const [mfaFactorId, setMfaFactorId] = useState(null)
   const [mfaCode, setMfaCode]         = useState('')
   const [verifying, setVerifying]     = useState(false)
+  const [showLostDevice, setShowLostDevice] = useState(false)
+  const [lostDeviceStep, setLostDeviceStep] = useState('send') // send | verify
+  const [lostDeviceCode, setLostDeviceCode] = useState('')
+  const [lostDeviceSending, setLostDeviceSending] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(profile?.marketing_opt_in || false)
+  const [deviceLog, setDeviceLog]           = useState([])
+  const [language, setLanguage]         = useState(profile?.preferred_language || 'en')
   const isOAuth = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'apple'
 
-  if (showChangePIN) {
-    return <ChangePasswordPage onBack={() => setShowChangePIN(false)} />
-  }
-
+  // HIGH-1 fix: hooks must come before any conditional return
   useEffect(() => {
     loadMfaFactors()
+    loadDeviceLog()
   }, [])
+
+  async function loadDeviceLog() {
+    const { data } = await supabase
+      .from('device_log')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setDeviceLog(data || [])
+  }
 
   async function loadMfaFactors() {
     const { data } = await supabase.auth.mfa.listFactors()
@@ -68,6 +83,44 @@ export default function SettingsPage() {
     loadMfaFactors()
   }
 
+  async function sendLostDeviceCode() {
+    setLostDeviceSending(true)
+    try {
+      const { error } = await supabase.functions.invoke('mfa-email', {
+        body: { action: 'send_code', userId: user.id, email: user.email },
+      })
+      if (error) throw error
+      setLostDeviceStep('verify')
+      toast.success('Verification code sent to ' + user.email)
+    } catch (e) { toast.error(e.message || 'Could not send code') }
+    finally { setLostDeviceSending(false) }
+  }
+
+  async function verifyLostDeviceCode() {
+    setVerifying(true)
+    try {
+      // HIGH-4 fix: use mfa_unenroll action which uses service-role to delete the TOTP factor
+      // This avoids the AAL2 requirement that would block client-side mfa.unenroll()
+      const { data, error } = await supabase.functions.invoke('mfa-email', {
+        body: { action: 'mfa_unenroll', userId: user.id, code: lostDeviceCode },
+      })
+      if (error || !data?.unenrolled) throw new Error('Invalid or expired code')
+      toast.success('2FA cleared - please set up a new authenticator app')
+      setShowLostDevice(false)
+      setLostDeviceStep('send')
+      setLostDeviceCode('')
+      loadMfaFactors()
+    } catch (e) { toast.error(e.message || 'Could not verify code') }
+    finally { setVerifying(false) }
+  }
+
+  async function savePreferences() {
+    try {
+      await updateProfile({ marketing_opt_in: marketingOptIn, preferred_language: language })
+      toast.success('Preferences saved')
+    } catch { toast.error('Could not save preferences') }
+  }
+
   async function handleSaveName() {
     setSaving(true)
     try { await updateProfile({ full_name: name }); toast.success('Name updated') }
@@ -81,12 +134,12 @@ export default function SettingsPage() {
       const [{ data: entries }, { data: bens }, { data: prof }] = await Promise.all([
         supabase.from('vault_entries').select('*').eq('user_id', user.id),
         supabase.from('beneficiaries').select('*').eq('user_id', user.id),
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('profiles').select('id, full_name, plan, plan_renewal, created_at, updated_at, checkin_frequency_days, last_checkin, gdpr_consent_at, account_origin, vault_pin_set, mfa_enrolled').eq('id', user.id).single(),
       ])
       const exportPayload = {
         exported_at: new Date().toISOString(),
-        encryption_notice: "vault_entries fields (username, password, notes) are AES-256-GCM encrypted. They cannot be read without your master password.",
-        gdpr_basis: "GDPR Article 20 — Right to data portability",
+        encryption_notice: "vault_entries fields (username, password, notes) are AES-256-GCM encrypted. They cannot be read without your vault PIN. Digital Relative does not hold your PIN.",
+        gdpr_basis: "GDPR Article 20 - Right to data portability",
         profile: prof,
         vault_entries: entries,
         beneficiaries: bens,
@@ -108,6 +161,10 @@ export default function SettingsPage() {
   }
 
   const hasMfa = mfaFactors.some(f => f.status === 'verified')
+
+  if (showChangePIN) {
+    return <ChangePasswordPage onBack={() => setShowChangePIN(false)} />
+  }
 
   return (
     <div>
@@ -131,7 +188,7 @@ export default function SettingsPage() {
         </div>
         {isOAuth && (
           <div style={{ fontSize: 12, color: 'var(--text-sub)', padding: '8px 12px', background: 'var(--gold-dim)', borderRadius: 'var(--r)', border: '1px solid var(--gold-border)', marginBottom: 14 }}>
-            Signed in with {user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'} — security managed by your provider
+            Signed in with {user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'} - security managed by your provider
           </div>
         )}
         <button className="btn-primary" onClick={handleSaveName} disabled={saving}>
@@ -139,7 +196,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* MFA — only show for email users */}
+      {/* MFA - only show for email users */}
       {!isOAuth && (
         <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -200,16 +257,16 @@ export default function SettingsPage() {
         <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
           <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Password</h3>
           <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14 }}>
-            Your vault is encrypted with AES-256-GCM using a key derived from your password. Even Digital Relative cannot read your data.
+            Your vault is encrypted with AES-256-GCM using a key derived from your vault PIN. Even Digital Relative cannot read your data.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setShowChangePIN(true)}>
               Change vault PIN
             </button>
             <button className="btn-ghost" style={{ fontSize: 12 }} onClick={async () => {
-              if (!confirm('Sending a password reset email will break your vault access until you re-encrypt it.\n\nYour vault PIN is separate from your login password — consider using "Change vault PIN" instead.\n\nContinue with password reset?')) return
+              if (!confirm('Your vault PIN and login password are separate credentials.\n\nResetting your password will NOT affect your vault - you can still unlock it with your PIN.\n\nContinue with password reset?')) return
               await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: window.location.origin })
-              toast.success('Password reset email sent — your vault PIN will need updating after reset')
+              toast.success('Password reset email sent')
             }}>
               Reset login password
             </button>
@@ -220,11 +277,123 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Language and preferences */}
+      <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 14 }}>Language and preferences</h3>
+        <div style={{ marginBottom: 14 }}>
+          <label className="label" style={{ marginBottom: 8 }}>Display language</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { code: 'en', label: 'English',  flag: '🇬🇧' },
+              { code: 'pl', label: 'Polski',   flag: '🇵🇱' },
+              { code: 'ur', label: 'اردو',     flag: '🇵🇰' },
+              { code: 'ar', label: 'العربية',  flag: '🇸🇦' },
+            ].map(lang => (
+              <button key={lang.code} onClick={() => setLanguage(lang.code)} style={{
+                padding: '8px 14px', borderRadius: 'var(--r)', fontSize: 13, cursor: 'pointer',
+                background: language === lang.code ? 'var(--gold)' : 'transparent',
+                color: language === lang.code ? '#0d1b2a' : 'var(--text-sub)',
+                border: language === lang.code ? 'none' : '1px solid var(--border-md)',
+                fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                {lang.flag} {lang.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+            <input type="checkbox" checked={marketingOptIn}
+              onChange={e => setMarketingOptIn(e.target.checked)}
+              style={{ marginTop: 2, accentColor: 'var(--gold)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.6 }}>
+              I'd like to hear about product updates, guides, and partner offers (wills, funeral care, insurance)
+            </span>
+          </label>
+        </div>
+        <button className="btn-primary" style={{ fontSize: 13 }} onClick={savePreferences}>Save preferences</button>
+      </div>
+
+      {/* Lost device / MFA reset */}
+      {!isOAuth && hasMfa && (
+        <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+          <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Lost your authenticator device?</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+            If you've lost your phone or authenticator app, verify your identity by email to reset 2FA and set up a new device.
+          </p>
+          {!showLostDevice ? (
+            <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setShowLostDevice(true)}>
+              Reset 2FA via email
+            </button>
+          ) : (
+            <div style={{ padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
+              {lostDeviceStep === 'send' ? (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 12, lineHeight: 1.6 }}>
+                    We'll send a one-time code to <strong style={{ color: 'var(--text)' }}>{user?.email}</strong>. Entering the code will remove your current 2FA so you can set up a new device.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-primary" style={{ fontSize: 12 }} onClick={sendLostDeviceCode} disabled={lostDeviceSending}>
+                      {lostDeviceSending ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Send code to my email'}
+                    </button>
+                    <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setShowLostDevice(false)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 12 }}>
+                    Enter the 6-digit code sent to {user?.email}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input className="input" placeholder="000000" value={lostDeviceCode}
+                      onChange={e => setLostDeviceCode(e.target.value)} maxLength={6}
+                      style={{ width: 140, textAlign: 'center', fontSize: 18, letterSpacing: '0.2em' }} />
+                    <button className="btn-danger" style={{ fontSize: 12 }} onClick={verifyLostDeviceCode} disabled={verifying || lostDeviceCode.length !== 6}>
+                      {verifying ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Remove 2FA'}
+                    </button>
+                    <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setLostDeviceStep('send')}>Back</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Device log */}
+      <div className="fade-up-4 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Recent sign-ins</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.6 }}>
+          You'll receive an email if a new device signs in. If you see anything unexpected, change your password immediately.
+        </p>
+        {deviceLog.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--text-sub)' }}>No sign-in history yet.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {deviceLog.map((d, i) => (
+              <div key={d.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+                <span style={{ fontSize: 18 }}>{d.user_agent?.includes('Mobile') ? '📱' : '💻'}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>
+                    {d.location || 'Unknown location'}
+                    {i === 0 && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10 }}>Current</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>
+                    {new Date(d.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                    {d.ip_address && d.ip_address !== 'Unknown' ? ` - ${d.ip_address}` : ''}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* GDPR */}
       <div className="fade-up-4 card-static" style={{ marginBottom: 18 }}>
         <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Your data (GDPR)</h3>
         <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 14 }}>
-          Under GDPR Article 20 you have the right to a copy of all data we hold. Your data is stored in the EU and never sold.
+          Under GDPR Article 20 you have the right to a copy of all data we hold. Your data is stored in the UK (Supabase London region) and never sold or shared with third parties.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={handleExportData}>Export all my data (JSON)</button>

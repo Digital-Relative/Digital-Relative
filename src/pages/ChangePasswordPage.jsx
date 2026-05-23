@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -21,6 +21,7 @@ import toast from 'react-hot-toast'
 export default function ChangePasswordPage({ onBack }) {
   const { user, profile } = useAuth()
   const [step, setStep]         = useState('verify') // verify | new_pin | confirm | reencrypting | done
+  const [entryCount, setEntryCount] = useState(null)
   const [oldPin, setOldPin]     = useState('')
   const [newPin, setNewPin]     = useState('')
   const [confirmPin, setConfirmPin] = useState('')
@@ -105,6 +106,10 @@ export default function ChangePasswordPage({ onBack }) {
       // 5. Re-encrypt all entries with new key
       setProgress({ done: 0, total: decrypted.length, stage: 'Re-encrypting entries…' })
       setSessionKey(newKey)
+      // Clear PINs from React state immediately after key derivation
+      setOldPin('')
+      setNewPin('')
+      setConfirmPin('')
       const reencrypted = []
       for (const entry of decrypted) {
         const enc = await encryptEntry({
@@ -136,7 +141,16 @@ export default function ChangePasswordPage({ onBack }) {
       // vault_documents: only metadata (name, notes) stored in DB — not encrypted at rest in DB
       // The actual file bytes are in private storage, protected by RLS
 
-      // 7. Save everything — update all entries and the new salt atomically
+      // 7. Update salt and key_verification FIRST (before entry loop)
+      // M-4 fix: if browser closes mid-loop, the new salt is already committed.
+      // Un-re-encrypted entries will fail decryption (surfaced as errors) rather than
+      // silently mixing old and new ciphertext under the old salt.
+      await supabase.from('profiles').update({
+        encryption_salt:  newSalt,
+        key_verification: testEncrypted,
+      }).eq('id', user.id)
+
+      // 8. Re-encrypt and save all entries
       setProgress({ done: 0, total: reencrypted.length, stage: 'Saving to vault…' })
       for (const entry of reencrypted) {
         const { id, ...updates } = entry
@@ -149,17 +163,11 @@ export default function ChangePasswordPage({ onBack }) {
         setProgress(p => ({ ...p, done: p.done + 1 }))
       }
 
-      // 8. Update salt and key_verification
-      await supabase.from('profiles').update({
-        encryption_salt:  newSalt,
-        key_verification: testEncrypted,
-      }).eq('id', user.id)
-
       // Session key is already set to newKey from step 5
       toast.success('Vault re-encrypted with new PIN')
       setStep('done')
     } catch (err) {
-      toast.error(err.message || 'Re-encryption failed — your vault is unchanged')
+      toast.error(err.message || 'Re-encryption failed - your vault is unchanged')
       setStep('verify')
     } finally {
       setLoading(false)
@@ -182,7 +190,7 @@ export default function ChangePasswordPage({ onBack }) {
 
       <div className="card-static" style={{ marginBottom: 20, borderColor: 'rgba(201,168,76,0.3)', background: 'var(--gold-dim)' }}>
         <p style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7, margin: 0 }}>
-          This process will <strong style={{ color: 'var(--gold)' }}>re-encrypt your entire vault</strong> with your new PIN. All {'{entries}'} entries will be decrypted and re-encrypted automatically. This cannot be undone — make sure you remember your new PIN.
+          This process will <strong style={{ color: 'var(--gold)' }}>re-encrypt your entire vault</strong> with your new PIN. All {entryCount === null ? '...' : entryCount} entries will be decrypted and re-encrypted automatically. This cannot be undone - make sure you remember your new PIN.
         </p>
       </div>
 
@@ -228,7 +236,7 @@ export default function ChangePasswordPage({ onBack }) {
               maxLength={12} autoFocus style={inputStyle} />
           </div>
           <div style={{ padding: '12px 14px', background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.25)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
-            ⚠️ This will re-encrypt your entire vault. Make sure you store your new PIN safely — it cannot be recovered.
+            ⚠️ This will re-encrypt your entire vault. Make sure you store your new PIN safely - it cannot be recovered.
           </div>
           <button className="btn-primary" type="submit"
             disabled={loading || confirmPin.length < 6}

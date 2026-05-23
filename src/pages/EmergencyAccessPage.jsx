@@ -62,7 +62,7 @@ export default function EmergencyAccessPage() {
   function handleFileSelect(f) {
     if (!f) return
     if (!ALLOWED_TYPES.includes(f.type)) { toast.error('Please upload a PDF or image file'); return }
-    if (f.size > MAX_FILE_SIZE) { toast.error('File too large — maximum 25MB'); return }
+    if (f.size > MAX_FILE_SIZE) { toast.error('File too large - maximum 25MB'); return }
     if (f.size === 0) { toast.error('File appears to be empty'); return }
     setFile(f)
   }
@@ -95,7 +95,7 @@ export default function EmergencyAccessPage() {
       setResult(data)
       setStep('done')
     } catch (err) {
-      toast.error(err.message || 'Submission failed — please try again')
+      toast.error(err.message || 'Submission failed - please try again')
       setStep('upload')
     } finally {
       setLoading(false)
@@ -162,7 +162,7 @@ export default function EmergencyAccessPage() {
             <button onClick={() => setStep('intro')} style={{ background: 'transparent', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 20, marginBottom: 20 }}>←</button>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--cream)', marginBottom: 6 }}>Upload document</h2>
             <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 24, lineHeight: 1.6 }}>
-              Please upload a clear scan or photo. The document should clearly show the full name, date, and an official seal or signature. PDF, JPG, PNG or WebP — max 25MB.
+              Please upload a clear scan or photo. The document should clearly show the full name, date, and an official seal or signature. PDF, JPG, PNG or WebP - max 25MB.
             </p>
 
             {/* Document type selector */}
@@ -259,7 +259,7 @@ export default function EmergencyAccessPage() {
             <div className="card-static" style={{ textAlign: 'left', marginBottom: 24 }}>
               <div style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
                 <strong style={{ color: 'var(--text)' }}>What happens now:</strong><br /><br />
-                1. We've notified the vault owner that a request was submitted — if they're alive, they can deny it.<br /><br />
+                1. We've notified the vault owner that a request was submitted - if they're alive, they can deny it.<br /><br />
                 2. Our system is verifying your document automatically.<br /><br />
                 3. You'll receive an email at the address you registered with when a decision is made.<br /><br />
                 4. If approved, you and all beneficiaries will receive access immediately.

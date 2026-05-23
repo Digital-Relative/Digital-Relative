@@ -115,7 +115,7 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
   const [showForgot, setShowForgot]     = useState(false)
   const [signupDone, setSignupDone]     = useState(false)
   const [signupEmail, setSignupEmail]   = useState('')
-  const [form, setForm] = useState({ email: '', password: '', fullName: '', confirmPassword: '' })
+  const [form, setForm] = useState({ email: '', password: '', fullName: '', confirmPassword: '', marketingOptIn: false })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function handleOAuth(provider) {
@@ -154,7 +154,7 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
           toast.success('Welcome back')
         }
       } else {
-        await signUp({ email: form.email, password: form.password, fullName: form.fullName })
+        await signUp({ email: form.email, password: form.password, fullName: form.fullName, marketingOptIn: form.marketingOptIn })
         // Store selected plan in sessionStorage to survive email confirmation redirect
         if (selectedPlan) {
           sessionStorage.setItem('dr_pending_plan', JSON.stringify(selectedPlan))
@@ -359,8 +359,8 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
             {mode === 'signup' && (
               <p style={{ fontSize: 11, color: 'var(--text-sub)', textAlign: 'center', marginTop: 16, lineHeight: 1.6 }}>
                 By creating an account you agree to our{' '}
-                <a href="/privacy.html" target="_blank">Privacy Policy</a> and{' '}
-                <a href="/terms.html" target="_blank">Terms of Service</a>.
+                <a href="/?page=privacy">Privacy Policy</a> and{' '}
+                <a href="/?page=terms">Terms of Service</a>.
               </p>
             )}
           </div>

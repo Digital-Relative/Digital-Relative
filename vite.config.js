@@ -8,8 +8,7 @@ export default defineConfig(({ mode }) => ({
     minify: 'terser',          // Stronger minification obfuscates logic
     terserOptions: mode === 'production' ? {
       compress: {
-        // Keep console.error for debugging - remove once crash is fixed
-        pure_funcs: ['console.log', 'console.info', 'console.warn', 'console.debug'],
+        drop_console: true,
         drop_debugger: true,
       },
     } : {},

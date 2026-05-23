@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
 
@@ -20,9 +20,7 @@ function corsHeaders(origin: string) {
 }
 
 const UUID_RE        = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ONFIDO_API_KEY = Deno.env.get('ONFIDO_API_KEY') || ''
 const ONFIDO_BASE    = 'https://api.eu.onfido.com/v3.6'
-const ADMIN_TOKEN    = Deno.env.get('ADMIN_SECRET_TOKEN') || ''
 const APP_URL        = 'https://digitalrelative.co.uk'
 const ADMIN_EMAIL    = 'admin@digitalrelative.co.uk'
 
@@ -45,18 +43,6 @@ function he(s: string): string {
 }
 
 // FIX EF-EA-2: Proper constant-time admin token verification
-async function verifyAdminToken(provided: string): Promise<boolean> {
-  if (!ADMIN_TOKEN || !provided) return false
-  const enc  = new TextEncoder()
-  const keyA = await crypto.subtle.importKey('raw', enc.encode('dr-admin-hmac'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const keyB = await crypto.subtle.importKey('raw', enc.encode('dr-admin-hmac'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const hashA = new Uint8Array(await crypto.subtle.sign('HMAC', keyA, enc.encode(provided)))
-  const hashB = new Uint8Array(await crypto.subtle.sign('HMAC', keyB, enc.encode(ADMIN_TOKEN)))
-  if (hashA.length !== hashB.length) return false
-  let diff = 0
-  for (let i = 0; i < hashA.length; i++) diff |= hashA[i] ^ hashB[i]
-  return diff === 0
-}
 
 // FIX EF-EA-3: Safe JWT verification returning user ID
 async function verifyJwt(supabase: any, authHeader: string): Promise<string | null> {
@@ -102,7 +88,7 @@ function generateReviewToken(): string {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get('origin') || ''
+      const origin = req.headers.get('origin') || ''
   const hdrs   = corsHeaders(origin)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: hdrs })
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
@@ -135,7 +121,7 @@ serve(async (req) => {
 
       const allowedTypes = Object.keys(TYPE_TO_EXT)
       if (!allowedTypes.includes(fileType)) throw new Error('Invalid file type. Please upload PDF, JPG, PNG, or WebP.')
-      if (certificateBase64.length > 35_000_000) throw new Error('File too large — maximum 25MB')
+      if (certificateBase64.length > 35_000_000) throw new Error('File too large - maximum 25MB')
 
       // FIX EF-EA-1: Verify caller's user ID matches the beneficiary's linked_user_id
       const { data: ben, error: benError } = await supabase
@@ -150,7 +136,7 @@ serve(async (req) => {
 
       // FIX EF-EA-1: Caller must be the linked account of this beneficiary
       if (ben.linked_user_id !== callerId) {
-        throw new Error('Unauthorised — you are not the linked account for this beneficiary')
+        throw new Error('Unauthorised - you are not the linked account for this beneficiary')
       }
 
       if (!['email_confirmed', 'id_verified', 'access_granted'].includes(ben.status)) {
@@ -231,8 +217,8 @@ serve(async (req) => {
       if (ownerEmail) {
         await sendEmail({
           to:      ownerEmail,
-          subject: '⚠️ Digital Relative — Emergency access request submitted',
-          html:    ownerAliveNotificationEmail(ownerName, ben.name, request.id),
+          subject: '⚠️ Digital Relative - Emergency access request submitted',
+          html:    ownerAliveNotificationEmail(ownerName, ben.name, request.id, `${APP_URL}/?page=settings&deny_request=${request.id}`),
         })
         await supabase.from('access_requests')
           .update({ owner_notified_at: new Date().toISOString() })
@@ -240,8 +226,10 @@ serve(async (req) => {
       }
 
       // Start Onfido or fall to manual review
+      // Read ONFIDO_API_KEY inside handler (not module level) for fresh value after rotation
+      const ONFIDO_API_KEY = Deno.env.get('ONFIDO_API_KEY') || ''
       if (ONFIDO_API_KEY) {
-        await startOnfidoDocumentCheck(supabase, request.id, vaultOwnerId, ownerName, fileName, fileType)
+        await startOnfidoDocumentCheck(ONFIDO_API_KEY, supabase, request.id, vaultOwnerId, ownerName, fileName, fileType)
       } else {
         await supabase.from('access_requests').update({ status: 'manual_review' }).eq('id', request.id)
         // FIX EF-EA-6: Send review URL with per-request token, NOT ADMIN_TOKEN
@@ -281,7 +269,16 @@ serve(async (req) => {
       for (let i = 0; i < tokenA.length; i++) diff |= tokenA[i] ^ tokenB[i]
       if (diff !== 0) return new Response('Forbidden', { status: 403 })
 
-      return new Response(JSON.stringify({ request }), {
+      // L-4 fix: return signed URL for certificate instead of routing through non-existent edge function
+      let certificateUrl: string | null = null
+      if (request.certificate_path) {
+        const { data: signed } = await supabase.storage
+          .from('death-certificates')
+          .createSignedUrl(request.certificate_path, 300) // 5-minute signed URL
+        certificateUrl = signed?.signedUrl || null
+      }
+
+      return new Response(JSON.stringify({ request, certificateUrl }), {
         headers: { ...hdrs, 'Content-Type': 'application/json' },
       })
     }
@@ -318,11 +315,14 @@ serve(async (req) => {
       }
 
       if (decision === 'approve') {
-        await grantVaultAccess(supabase, request)
+        // HIGH-2 fix: admin approval must go through the same 48-hour hold as Onfido
+        // Do NOT call grantVaultAccess directly — set access_grant_after and let scheduler process it
+        const holdUntil = new Date(Date.now() + 48 * 3600 * 1000).toISOString()
         await supabase.from('access_requests').update({
           status: 'manually_approved', reviewed_by_admin: true,
           admin_notes: adminNotes || null,
           review_token: null, // Invalidate token after use
+          access_grant_after: holdUntil,
         }).eq('id', requestId)
       } else {
         await supabase.from('access_requests').update({
@@ -336,7 +336,7 @@ serve(async (req) => {
         if (ben?.email) {
           await sendEmail({
             to:      ben.email,
-            subject: 'Digital Relative — Access request update',
+            subject: 'Digital Relative - Access request update',
             html:    rejectionEmail(ben.name || 'there', adminNotes || 'We were unable to verify the document provided.'),
           })
         }
@@ -388,7 +388,13 @@ serve(async (req) => {
       }).eq('id', requestId)
 
       if (response === 'alive_approve') {
-        await grantVaultAccess(supabase, request)
+        // Apply 1-hour minimum hold even for owner-approved access
+        // Prevents compromised owner account from immediately granting access to accomplice
+        const holdUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        await supabase.from('access_requests')
+          .update({ access_grant_after: holdUntil, status: 'manually_approved' })
+          .eq('id', request.id)
+        // Actual grant happens via scheduler when hold expires
       } else {
         // FIX MISC-3: Clean up certificate when denied
         if (request.certificate_path) {
@@ -407,11 +413,21 @@ serve(async (req) => {
     // ── ONFIDO WEBHOOK ────────────────────────────────────────────────────────
     // FIX BL-EA-4: Handle Onfido document check results for death certificates
     if (body.action === 'onfido_webhook') {
-      // FIX EF-2: rawBody is already the original request text (read above)
       const onfidoWebhookToken = Deno.env.get('ONFIDO_WEBHOOK_TOKEN') || ''
+      // L-6 fix: reject all webhook calls when token is not configured
+      if (!onfidoWebhookToken) {
+        console.error('ONFIDO_WEBHOOK_TOKEN not configured - rejecting webhook')
+        return new Response('Forbidden', { status: 403 })
+      }
       const signature = req.headers.get('x-sha2-signature') || ''
 
-      if (onfidoWebhookToken && signature) {
+      // HIGH-2 fix: signature must be present — reject immediately if absent
+      if (!signature) {
+        return new Response('Unauthorised', { status: 401 })
+      }
+
+      // MED-3 fix: both guards above guarantee these are truthy — remove redundant condition
+      {
         // FIX MD-3: atob throws on invalid base64 — return 403
         let sigBuf: Uint8Array
         try {
@@ -441,6 +457,43 @@ serve(async (req) => {
       if (!isComplete) return new Response('OK', { status: 200 })
 
       if (onfidoResult === 'clear') {
+        // Check if the submitting beneficiary has id_only access_requirement
+        // If so, grant access immediately without requiring a death certificate
+        const { data: submittingBen } = await supabase
+          .from('beneficiaries')
+          .select('access_requirement')
+          .eq('id', request?.submitted_by)
+          .single()
+
+        // Look up the beneficiary name for the notification email
+        const submitterBenName = (await supabase.from('beneficiaries').select('name').eq('id', request.submitted_by).single())?.data?.name || 'A beneficiary'
+
+        if (submittingBen?.access_requirement === 'id_only') {
+          // HIGH-2 fix: id_only still goes through the 48-hour hold via the scheduler
+          // MED-3 fix: notify vault owner so they have the denial window
+          const idOnlyGrantAfter = new Date(Date.now() + 48 * 3600 * 1000).toISOString()
+          await supabase.from('access_requests')
+            .update({ status: 'manually_approved', access_grant_after: idOnlyGrantAfter })
+            .eq('id', request.id)
+          // Notify vault owner — they have 48 hours to deny
+          // CRIT-1 fix: pass correct 3 args; denyUrl points to app page where owner can deny
+          const { data: ownerAuth } = await supabase.auth.admin.getUserById(request.vault_owner_id)
+          const ownerEmail   = ownerAuth?.user?.email
+          const rawOwnerName = ownerAuth?.user?.user_metadata?.full_name || 'there'
+          const ownerName    = rawOwnerName.replace(/[\r\n]/g, ' ').slice(0, 100)
+          const APP_URL_NOTIFY = 'https://digitalrelative.co.uk'
+          // Deny URL goes to the app's emergency access settings page — user signs in and denies
+          const denyUrl = `${APP_URL_NOTIFY}/?page=settings&deny_request=${request.id}`
+          if (ownerEmail) {
+            await sendEmail({
+              to:      ownerEmail,
+              subject: '⚠️ Digital Relative - Emergency access request submitted',
+              html:    ownerAliveNotificationEmail(ownerName, submitterBenName || 'A beneficiary', request.id, denyUrl),
+            }).catch(() => {})
+          }
+          return new Response('OK', { status: 200 })
+        }
+
         // FIX BL-EA-1: Add mandatory hold period — do NOT grant immediately
         // Mark as onfido_verified and schedule access grant after hold period
         // FIX DB-2: Set access_grant_after for 48h mandatory hold
@@ -496,6 +549,7 @@ serve(async (req) => {
 })
 
 async function startOnfidoDocumentCheck(
+  apiKey: string,
   supabase: any, requestId: string, vaultOwnerId: string,
   ownerName: string, filePath: string, fileType: string
 ) {
@@ -503,7 +557,7 @@ async function startOnfidoDocumentCheck(
     const [firstName, ...rest] = ownerName.split(' ')
     const applicantRes = await fetchWithTimeout(`${ONFIDO_BASE}/applicants`, {
       method: 'POST',
-      headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Token token=${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ first_name: firstName || 'Unknown', last_name: rest.join(' ') || 'Unknown' }),
     })
     const applicant = await applicantRes.json()
@@ -517,7 +571,7 @@ async function startOnfidoDocumentCheck(
 
     const docRes = await fetchWithTimeout(`${ONFIDO_BASE}/documents`, {
       method: 'POST',
-      headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}` },
+      headers: { 'Authorization': `Token token=${apiKey}` },
       body: formData,
     })
     const doc = await docRes.json()
@@ -525,7 +579,7 @@ async function startOnfidoDocumentCheck(
 
     const checkRes = await fetchWithTimeout(`${ONFIDO_BASE}/checks`, {
       method: 'POST',
-      headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Token token=${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ applicant_id: applicant.id, report_names: ['document'], document_ids: [doc.id] }),
     })
     const check = await checkRes.json()
@@ -542,23 +596,25 @@ async function startOnfidoDocumentCheck(
 
 async function grantVaultAccess(supabase: any, request: any) {
   const { vault_owner_id } = request
+  // HIGH-1 fix: only grant beneficiaries whose requirement is satisfied by a completed verification
+  // trust_only beneficiaries are granted at acceptance time, not here
   const { data: bens } = await supabase
     .from('beneficiaries')
     .select('id, email, name, invite_token, id_verified_at')
     .eq('user_id', vault_owner_id)
-    .in('status', ['email_confirmed', 'id_verified', 'confirmed'])
+    .in('status', ['email_confirmed', 'id_verified'])
+    .in('access_requirement', ['death_certificate', 'id_only'])
 
   const ownerAuth = await supabase.auth.admin.getUserById(vault_owner_id)
   const ownerName = ownerAuth.data?.user?.user_metadata?.full_name || 'Your family member'
 
   for (const ben of bens ?? []) {
-    const newTier = ben.id_verified_at ? 2 : 1
-    await supabase.from('beneficiaries').update({ status: 'access_granted', access_tier: newTier }).eq('id', ben.id)
-
-    // FIX BL-EA-3: Generate a fresh access token for this grant event
-    // (separate from the original invite_token)
+    const newTier    = ben.id_verified_at ? 2 : 1
     const freshToken = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('')
-    await supabase.from('beneficiaries').update({ emergency_access_token: freshToken }).eq('id', ben.id)
+    // LOW-1 fix: single atomic update — prevents orphaned access_granted with null token
+    await supabase.from('beneficiaries').update({
+      status: 'access_granted', access_tier: newTier, emergency_access_token: freshToken,
+    }).eq('id', ben.id)
     const accessUrl = `${APP_URL}/beneficiary?token=${freshToken}`
 
     await sendEmail({
@@ -584,7 +640,7 @@ async function notifyAdminForReview(supabase: any, requestId: string, submitterN
   const reviewUrl = `${APP_URL}/admin/review?request=${requestId}&token=${reviewToken}`
   await sendEmail({
     to:      ADMIN_EMAIL,
-    subject: `⚠️ Manual review required — Death certificate access request`,
+    subject: `⚠️ Manual review required - Death certificate access request`,
     html:    adminReviewEmail(requestId, he(submitterName), reviewUrl),
   })
 }
@@ -599,15 +655,17 @@ const layout = (content: string) => `<!DOCTYPE html><html><head><meta charset="u
   <div style="margin-top:36px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:11px;color:${MUTED};">Digital Relative · security@digitalrelative.co.uk</div>
 </div></body></html>`
 
-function ownerAliveNotificationEmail(ownerName: string, submitterName: string, requestId: string): string {
+function ownerAliveNotificationEmail(ownerName: string, submitterName: string, requestId: string, denyUrl?: string): string {
   return layout(`
     <h1 style="font-family:Georgia,serif;font-size:24px;color:#f0ece2;margin:0 0 14px;font-weight:400;">⚠️ Emergency access request</h1>
     <p style="font-size:14px;color:${TEXT};line-height:1.7;">Hi ${he(ownerName)},</p>
-    <p style="font-size:14px;color:${TEXT};line-height:1.7;"><strong style="color:#f0ece2;">${he(submitterName)}</strong> has submitted a death certificate and requested emergency access to your Digital Relative vault.</p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;"><strong style="color:#f0ece2;">${he(submitterName)}</strong> has submitted a request for emergency access to your Digital Relative vault.</p>
     <div style="background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);border-radius:8px;padding:16px;margin:16px 0;">
-      <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.7;"><strong>If you are alive and this is incorrect</strong>, sign in to your Digital Relative account and go to Settings to deny this request. Or reply to this email and we will deny it for you.</p>
+      <p style="font-size:14px;color:${TEXT};margin:0 0 ${denyUrl ? '14px' : '0'};line-height:1.7;"><strong>If you are alive and this is incorrect</strong>, deny this request immediately using the button below - or sign in to Digital Relative and go to Settings.</p>
+      ${denyUrl ? `<div style="text-align:center;"><a href="${denyUrl}" style="display:inline-block;background:#e05252;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;">I am alive - deny this request</a></div>` : ''}
     </div>
-    <p style="font-size:13px;color:${MUTED};line-height:1.7;">We have a mandatory 48-hour review period before any access is granted. You have time to act. Reference: ${he(requestId)}</p>
+    <p style="font-size:13px;color:${MUTED};line-height:1.7;">We have a mandatory 48-hour review period before any access is granted. You have time to act.</p>
+    <p style="font-size:13px;color:${MUTED};line-height:1.7;">Reference: ${he(requestId)}</p>
   `)
 }
 
@@ -627,7 +685,7 @@ function accessGrantedEmail(benName: string, ownerName: string, accessUrl: strin
     <p style="font-size:14px;color:${TEXT};line-height:1.7;">Dear ${he(benName)},</p>
     <p style="font-size:14px;color:${TEXT};line-height:1.7;">Access to <strong style="color:#f0ece2;">${he(ownerName)}</strong>'s Digital Relative vault has been verified and granted.</p>
     ${tier === 1
-      ? `<p style="font-size:14px;color:${TEXT};line-height:1.7;">You have <strong>Tier 1 access</strong> — the guidance ${he(ownerName)} prepared. For passwords and documents, complete a brief identity check.</p>`
+      ? `<p style="font-size:14px;color:${TEXT};line-height:1.7;">You have <strong>Tier 1 access</strong> - the guidance ${he(ownerName)} prepared. For passwords and documents, complete a brief identity check.</p>`
       : `<p style="font-size:14px;color:${TEXT};line-height:1.7;">You have <strong>full access</strong> to the vault contents.</p>`}
     <div style="text-align:center;margin:24px 0;"><a href="${accessUrl}" style="display:inline-block;background:${GOLD};color:#0d1b2a;text-decoration:none;font-size:14px;font-weight:600;padding:14px 36px;border-radius:8px;">Access vault →</a></div>
   `)

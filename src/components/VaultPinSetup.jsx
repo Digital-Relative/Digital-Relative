@@ -24,7 +24,7 @@ export default function VaultPinSetup({ onComplete }) {
 
   async function handleConfirm(e) {
     e.preventDefault()
-    if (pin !== confirm) { toast.error('PINs do not match — please try again'); setConfirm(''); return }
+    if (pin !== confirm) { toast.error('PINs do not match - please try again'); setConfirm(''); return }
 
     setLoading(true)
     try {
@@ -58,7 +58,7 @@ export default function VaultPinSetup({ onComplete }) {
       // Update local profile state directly (vault_pin_set not in updateProfile whitelist by design)
       setProfile(prev => ({ ...prev, vault_pin_set: true, encryption_salt: salt, key_verification: testEncrypted }))
 
-      toast.success('Vault PIN set — your data is now encrypted')
+      toast.success('Vault PIN set - your data is now encrypted')
       onComplete()
     } catch (err) {
       toast.error(err.message || 'Failed to set PIN')
@@ -84,7 +84,7 @@ export default function VaultPinSetup({ onComplete }) {
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.7 }}>
             {isOAuth
-              ? `You signed in with ${user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'}. Create a separate vault PIN to encrypt your data — this is different from your ${user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'} password.`
+              ? `You signed in with ${user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'}. Create a separate vault PIN to encrypt your data - this is different from your ${user?.app_metadata?.provider === 'google' ? 'Google' : 'Apple'} password.`
               : 'Create a PIN to encrypt your vault. This is separate from your login password.'}
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function VaultPinSetup({ onComplete }) {
           {step === 1 ? (
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', borderRadius: 'var(--r)', padding: '14px 16px', fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7 }}>
-                <strong style={{ color: 'var(--gold)' }}>Important:</strong> Your PIN encrypts your vault. If you forget it, your data cannot be recovered — not even by us. Store it somewhere safe.
+                <strong style={{ color: 'var(--gold)' }}>Important:</strong> Your PIN encrypts your vault. If you forget it, your data cannot be recovered - not even by us. Store it somewhere safe.
               </div>
 
               <div>

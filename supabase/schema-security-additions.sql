@@ -34,12 +34,21 @@ create policy "Users can view own audit log" on public.audit_log for select usin
 -- 3. Lock down profiles — prevent users escalating their own plan
 -- (Plan can only be updated by service role via webhook)
 drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Users can update own safe fields" on public.profiles;
+-- CRIT-2 fix: WITH CHECK must restrict columns, not just ownership
+-- Plan, stripe IDs, and security columns can only be set by service role
 create policy "Users can update own safe fields" on public.profiles
   for update using (auth.uid() = id)
   with check (
     auth.uid() = id
-    -- Users cannot change their own plan, stripe IDs, or renewal date
-    -- These can only be changed by the webhook (service role)
+    -- Block plan escalation and stripe ID manipulation by comparing candidate value to existing
+    and plan           = (select plan            from public.profiles where id = auth.uid())
+    and coalesce(stripe_customer_id, '')     = coalesce((select stripe_customer_id     from public.profiles where id = auth.uid()), '')
+    and coalesce(stripe_subscription_id, '') = coalesce((select stripe_subscription_id from public.profiles where id = auth.uid()), '')
+    and coalesce(plan_renewal::text, '')     = coalesce((select plan_renewal::text     from public.profiles where id = auth.uid()), '')
+    -- Block mfa_enrolled and mfa_email_fallback being set directly by the client (must go via edge function)
+    and mfa_enrolled       = (select mfa_enrolled       from public.profiles where id = auth.uid())
+    and mfa_email_fallback = (select mfa_email_fallback from public.profiles where id = auth.uid())
   );
 
 -- 4. Prevent beneficiary token enumeration

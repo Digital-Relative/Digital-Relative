@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 
 const ALLOWED_ORIGINS = new Set([
@@ -81,6 +81,14 @@ serve(async (req) => {
 
     const isRequester = link.requester_id === initiatorId
     const payer       = link.couples_payer_id
+    // HIGH-3 fix: null couples_payer_id must not default to treating requester as nonPayer
+    // If payer is not set, we cannot determine who is paying — skip Stripe downgrade logic
+    if (!payer) {
+      console.error('couples_payer_id is null - cannot determine payer. Aborting separation.')
+      return new Response(JSON.stringify({ error: 'Couple link missing payment information. Contact support.' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' },
+      })
+    }
     const nonPayer    = payer === link.requester_id ? link.partner_id : link.requester_id
 
     let billingNote = ''
@@ -115,7 +123,7 @@ serve(async (req) => {
           if (refundPence > 0) {
             // Get latest invoice charge ID for refund
             const invoicesRes = await fetchWithTimeout(
-              `https://api.stripe.com/v1/invoices?customer=${sub.customer}&limit=1&status=paid`,
+              `https://api.stripe.com/v1/invoices?customer=${sub.customer}&subscription=${sub.id}&limit=1&status=paid`,
               { headers: { 'Authorization': `Bearer ${stripeKey}` } }
             )
             const invoices = await invoicesRes.json()
@@ -156,7 +164,7 @@ serve(async (req) => {
         await supabase.from('notifications').insert([{
           user_id: payer,
           type: 'partner_unlinked',
-          title: 'Couples link ended — review your plan',
+          title: 'Couples link ended - review your plan',
           message: 'Your Couples vault has been unlinked. You may wish to switch to a Single plan. Visit My Plan to manage your subscription.',
           action_url: '/plan',
         }])

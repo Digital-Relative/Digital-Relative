@@ -42,10 +42,14 @@ async function encryptWithLinkKey(plaintext, linkKey) {
 
 // Hash a PIN with token as salt (for server-side verification)
 async function hashPin(pin, token) {
-  const enc  = new TextEncoder()
-  const data = enc.encode(pin + token)
-  const buf  = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  // PBKDF2 matching shared-link-access.ts server-side verification
+  const enc    = new TextEncoder()
+  const keyMat = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits'])
+  const bits   = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(token), iterations: 100_000, hash: 'SHA-256' },
+    keyMat, 256
+  )
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 export default function ShareModal({ item, itemType, onClose }) {
@@ -104,7 +108,7 @@ export default function ShareModal({ item, itemType, onClose }) {
         setStep('configure')
       }
     } catch (err) {
-      toast.error(err.message === 'Decryption failed — data may be corrupt or password incorrect'
+      toast.error(err.message === 'Decryption failed - data may be corrupt or password incorrect'
         ? 'Incorrect PIN' : err.message || 'Incorrect PIN')
       setPin('')
     } finally {
@@ -333,7 +337,7 @@ export default function ShareModal({ item, itemType, onClose }) {
                     style={{ accentColor: 'var(--gold)' }} />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>Require a PIN to access</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>Recipient must enter a PIN you set — share it with them separately</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>Recipient must enter a PIN you set - share it with them separately</div>
                   </div>
                 </label>
                 {usePin && (
@@ -344,7 +348,7 @@ export default function ShareModal({ item, itemType, onClose }) {
 
               {/* Security note */}
               <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
-                🔐 Content is end-to-end encrypted. The decryption key is in the link itself — we cannot read it. Anyone with the full link can access the content, so share it carefully.
+                🔐 Content is end-to-end encrypted. The decryption key is in the link itself - we cannot read it. Anyone with the full link can access the content, so share it carefully.
               </div>
             </div>
 
@@ -397,7 +401,7 @@ export default function ShareModal({ item, itemType, onClose }) {
 
             {usePin && (
               <div style={{ padding: '10px 14px', background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--cream-dim)', marginBottom: 16 }}>
-                ⚠️ Remember to share the PIN with the recipient separately — not in the same message as the link.
+                ⚠️ Remember to share the PIN with the recipient separately - not in the same message as the link.
               </div>
             )}
 

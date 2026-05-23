@@ -53,7 +53,7 @@ export default function VaultLocked() {
       setAttempts(newAttempts)
       setPin('')
       if (newAttempts >= MAX_ATTEMPTS) {
-        toast.error('Too many incorrect attempts — please sign out')
+        toast.error('Too many incorrect attempts - please sign out')
       } else {
         toast.error(`Incorrect PIN · ${MAX_ATTEMPTS - newAttempts} attempt${MAX_ATTEMPTS - newAttempts !== 1 ? 's' : ''} remaining`)
       }
@@ -80,7 +80,7 @@ export default function VaultLocked() {
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 24, lineHeight: 1.6 }}>
           {isOAuth
-            ? `Your vault was locked after inactivity. Enter your vault PIN to continue — this is separate from your ${provider === 'google' ? 'Google' : 'Apple'} account.`
+            ? `Your vault was locked after inactivity. Enter your vault PIN to continue - this is separate from your ${provider === 'google' ? 'Google' : 'Apple'} account.`
             : 'Your vault was locked after 30 minutes of inactivity. Enter your vault PIN to continue.'}
         </div>
 

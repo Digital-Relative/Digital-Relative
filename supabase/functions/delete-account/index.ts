@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 
 const ALLOWED_ORIGINS = new Set([
@@ -25,6 +25,23 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000
   const timer = setTimeout(() => ctrl.abort(), ms)
   try { return await fetch(url, { ...opts, signal: ctrl.signal }) }
   finally { clearTimeout(timer) }
+}
+
+
+// Module-level recursive storage listing for delete-account
+async function listAllPaths(supabase: any, prefix: string): Promise<string[]> {
+  const { data: items } = await supabase.storage.from('vault-files').list(prefix, { limit: 1000 })
+  if (!items?.length) return []
+  const paths: string[] = []
+  for (const item of items) {
+    if (item.id === null) {
+      const subPaths = await listAllPaths(supabase, `${prefix}/${item.name}`)
+      paths.push(...subPaths)
+    } else {
+      paths.push(`${prefix}/${item.name}`)
+    }
+  }
+  return paths
 }
 
 serve(async (req) => {
@@ -73,41 +90,22 @@ serve(async (req) => {
       }).catch(e => console.error('Stripe cancel failed:', e.message))
     }
 
-    // FIX EF-5: Recursively delete all files under userId prefix
-    // List all files with the user's prefix (handles nested folders)
-    const { data: files } = await supabase.storage
-      .from('vault-files')
-      .list(userId, { limit: 1000 })
-
-    if (files?.length) {
-      // For each subfolder, list its contents too
-      const allPaths: string[] = []
-      for (const item of files) {
-        if (item.id === null) {
-          // It's a folder — list its contents
-          const { data: subFiles } = await supabase.storage
-            .from('vault-files')
-            .list(`${userId}/${item.name}`, { limit: 1000 })
-          subFiles?.forEach(f => allPaths.push(`${userId}/${item.name}/${f.name}`))
-        } else {
-          allPaths.push(`${userId}/${item.name}`)
-        }
-      }
-      if (allPaths.length > 0) {
-        await supabase.storage.from('vault-files').remove(allPaths)
-      }
+    // 2. Recursively delete all storage files (GDPR Article 17 compliance)
+    const allPaths = await listAllPaths(supabase, userId)
+    if (allPaths.length > 0) {
+      await supabase.storage.from('vault-files').remove(allPaths)
     }
 
-    // 2. Anonymise audit log (GDPR compliance — keep records, remove PII)
+    // 3. Anonymise audit log (GDPR compliance — keep records, remove PII)
     await supabase.from('audit_log')
       .update({ user_id: null, ip_address: null, user_agent: null })
       .eq('user_id', userId)
       .catch(() => {})
 
-    // 3. Delete profile (cascades via FK)
+    // 4. Delete profile (cascades via FK)
     await supabase.from('profiles').delete().eq('id', userId)
 
-    // 4. Delete auth user (must be last)
+    // 5. Delete auth user (must be last — if this fails the catch returns the error)
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
     if (deleteError) throw new Error('Failed to delete auth user')
 

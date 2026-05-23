@@ -63,7 +63,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
       setSecret(data.totp.secret)
       setStep('app_setup')
     } catch (err) {
-      toast.error('Could not start setup — please try again or use email instead')
+      toast.error('Could not start setup - please try again or use email instead')
     } finally {
       setLoading(false)
     }
@@ -88,10 +88,10 @@ export default function MfaSetup({ onComplete, onSignOut }) {
       await supabase.from('profiles')
         .update({ mfa_enrolled: true, mfa_email_fallback: false })
         .eq('id', user.id)
-      toast.success('Authenticator app set up — save your recovery codes!')
+      toast.success('Authenticator app set up - save your recovery codes!')
       await generateRecoveryCodes()
     } catch {
-      toast.error('Incorrect code — check your app and try again')
+      toast.error('Incorrect code - check your app and try again')
       setCode('')
     } finally {
       setLoading(false)
@@ -130,7 +130,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
       setCodeSent(true)
       toast.success('Verification code sent to your email')
     } catch (err) {
-      toast.error(err.message?.includes('Too many') ? err.message : 'Could not send code — please try again')
+      toast.error(err.message?.includes('Too many') ? err.message : 'Could not send code - please try again')
     } finally {
       setLoading(false)
     }
@@ -144,7 +144,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
         body: { action: 'verify_code', userId: user.id, code },
       })
       if (error || data?.error) throw new Error(data?.error || 'Verification failed')
-      toast.success('Email verification set up — save your recovery codes!')
+      toast.success('Email verification set up - save your recovery codes!')
       await generateRecoveryCodes()
     } catch (err) {
       toast.error(err.message || 'Incorrect code')
@@ -242,7 +242,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
                 </div>
               </div>
 
-              {/* Step 2 — QR / manual toggle */}
+              {/* Step 2 - QR / manual toggle */}
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--gold)', color: '#0d1b2a', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</div>
                 <div style={{ flex: 1 }}>
@@ -363,7 +363,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
           )}
         </div>
 
-        {/* RECOVERY CODES — shown once after setup */}
+        {/* RECOVERY CODES - shown once after setup */}
         {recoveryCodes && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(5,12,20,0.97)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: '#0d1e30', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 16, padding: 32, width: 500, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -372,7 +372,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
                 <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 8 }}>Save your recovery codes</h2>
                 <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
                   If you lose your phone, these codes let you sign in.{' '}
-                  <strong style={{ color: 'var(--danger)' }}>Each code works once only. Save them now — you won't see them again.</strong>
+                  <strong style={{ color: 'var(--danger)' }}>Each code works once only. Save them now - you won't see them again.</strong>
                 </p>
               </div>
               <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 18px', marginBottom: 16, fontFamily: 'monospace', fontSize: 15, lineHeight: 2.2 }}>
@@ -399,7 +399,7 @@ export default function MfaSetup({ onComplete, onSignOut }) {
               </div>
               <button className="btn-primary" style={{ width: '100%', padding: 13 }}
                 onClick={() => { setRecoveryCodes(null); onComplete() }}>
-                I've saved my codes — continue →
+                I've saved my codes - continue →
               </button>
             </div>
           </div>

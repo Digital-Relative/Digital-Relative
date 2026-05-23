@@ -9,7 +9,7 @@ import { validateEmail, validateName, sanitiseText } from '../lib/validation'
 const ACCESS_LEVELS = ['Full access', 'Read only', 'Specific categories only']
 
 function BenModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', relation: '', email: '', access_level: 'Full access' })
+  const [form, setForm] = useState({ name: '', relation: '', email: '', access_level: 'Full access', access_requirement: 'death_certificate' })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -82,6 +82,37 @@ function BenModal({ onClose, onSave }) {
             </div>
           </div>
         </div>
+          <div>
+            <label className="label">Access requirement</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { id: 'death_certificate', label: 'Death certificate required', icon: '📋',
+                  detail: 'They must upload a death certificate and verify their identity. Highest security. Recommended for financial accounts.' },
+                { id: 'id_only', label: 'Identity verification only', icon: '🪪',
+                  detail: 'They verify who they are via photo ID, but do not need to submit a death certificate. Faster access.' },
+                { id: 'trust_only', label: 'Trust only', icon: '🤝',
+                  detail: 'They confirm their email and accept the invite. No ID or certificate needed. Best for close family with simple information.' },
+              ].map(opt => (
+                <label key={opt.id} onClick={() => set('access_requirement', opt.id)} style={{
+                  display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer',
+                  padding: '10px 12px', borderRadius: 'var(--r)',
+                  border: `1px solid ${form.access_requirement === opt.id ? 'var(--gold-border)' : 'var(--border)'}`,
+                  background: form.access_requirement === opt.id ? 'var(--gold-dim)' : 'rgba(255,255,255,0.02)',
+                }}>
+                  <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{opt.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: form.access_requirement === opt.id ? 'var(--gold)' : 'var(--text)', marginBottom: 2 }}>{opt.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.5 }}>{opt.detail}</div>
+                  </div>
+                  <div style={{
+                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0, marginTop: 3,
+                    border: `2px solid ${form.access_requirement === opt.id ? 'var(--gold)' : 'var(--border-md)'}`,
+                    background: form.access_requirement === opt.id ? 'var(--gold)' : 'transparent',
+                  }} />
+                </label>
+              ))}
+            </div>
+          </div>
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--gold-dim)', borderRadius: 'var(--r)', border: '1px solid var(--gold-border)', fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.6 }}>
           An invite email will be sent to confirm they're a beneficiary. They won't be able to access your vault until the check-in protection is triggered or you grant direct access.
         </div>
@@ -117,10 +148,22 @@ export default function BeneficiariesPage({ onNav }) {
     }
     const { error } = await supabase.from('beneficiaries').update({ is_executor: !currentIsExecutor }).eq('id', id)
     if (error) { toast.error('Failed to update executor'); return }
-    toast.success(currentIsExecutor ? 'Executor status removed' : '⭐ Executor set — this person can submit emergency access requests')
+    toast.success(currentIsExecutor ? 'Executor status removed' : '⭐ Executor set - this person can submit emergency access requests')
     // Refresh beneficiaries list
     const { data } = await supabase.from('beneficiaries').select('*').eq('user_id', profile.id)
     // Update local state via the hook's reload
+  }
+
+  async function handleResendInvite(b) {
+    try {
+      const { error } = await supabase.functions.invoke('send-beneficiary-invite', {
+        body: { beneficiaryId: b.id },
+      })
+      if (error) throw new Error('Could not resend invite')
+      toast.success('Invite resent to ' + b.email)
+    } catch (e) {
+      toast.error(e.message || 'Could not resend invite')
+    }
   }
 
   async function handleRemove(id, name) {
@@ -145,7 +188,7 @@ export default function BeneficiariesPage({ onNav }) {
       <div className="fade-up-2 card-static" style={{ borderColor: 'var(--gold-border)', background: 'var(--gold-dim)', marginBottom: 22 }}>
         <h3 style={{ fontFamily: 'var(--serif)', fontSize: 17, color: 'var(--gold)', marginBottom: 8 }}>How access works</h3>
         <p style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7 }}>
-          Beneficiaries only gain access to your vault when the check-in protection triggers — after your chosen check-in period lapses with no response — or if you manually grant access below. They receive an encrypted invite and must verify their identity to unlock vault contents.
+          Beneficiaries only gain access to your vault when the check-in protection triggers - after your chosen check-in period lapses with no response - or if you manually grant access below. They receive an encrypted invite and must verify their identity to unlock vault contents.
         </p>
       </div>
 
@@ -177,6 +220,9 @@ export default function BeneficiariesPage({ onNav }) {
                     {b.relation && `${b.relation} · `}{b.email}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>{b.access_level}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 2 }}>
+                    {b.access_requirement === 'id_only' ? '🪪 ID only' : b.access_requirement === 'trust_only' ? '🤝 Trust only' : '📋 Death certificate required'}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span className={`badge badge-${
@@ -186,6 +232,12 @@ export default function BeneficiariesPage({ onNav }) {
       b.status === 'declined' || b.status === 'revoked' ? 'danger' :
       'muted'
     }`}>{b.status.replace('_', ' ')}</span>
+                  {b.status === 'invited' && (
+                    <button className="btn-ghost" style={{ fontSize: 10, padding: '4px 10px' }}
+                      onClick={() => handleResendInvite(b)}>
+                      Resend invite
+                    </button>
+                  )}
                   <button
                     className={`btn-ghost`}
                     style={{ fontSize: 10, padding: '4px 10px', borderColor: b.is_executor ? 'var(--gold-border)' : undefined, color: b.is_executor ? 'var(--gold)' : undefined }}

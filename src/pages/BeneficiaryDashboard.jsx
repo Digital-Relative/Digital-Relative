@@ -44,11 +44,9 @@ export default function BeneficiaryDashboard({ onNav }) {
     supabase
       .from('beneficiaries')
       .select(`
-        *,
-        owner:user_id (
-          id,
-          full_name
-        )
+        id, user_id, name, relation, email, access_level, access_requirement,
+        status, invite_token, emergency_access_token, is_executor, linked_user_id,
+        owner:user_id (id, full_name)
       `)
       .eq('linked_user_id', user.id)
       .order('created_at', { ascending: false })
@@ -60,15 +58,33 @@ export default function BeneficiaryDashboard({ onNav }) {
 
   async function handleDecline(benId) {
     if (!confirm('Decline this nomination? The vault owner will be notified.')) return
-    await supabase.from('beneficiaries').update({ status: 'declined' }).eq('id', benId)
+    await supabase.from('beneficiaries').update({ status: 'declined' }).eq('id', benId).eq('linked_user_id', user.id)
     setNominations(prev => prev.map(n => n.id === benId ? { ...n, status: 'declined' } : n))
     toast.success('Nomination declined')
   }
 
   async function handleAccept(benId) {
-    await supabase.from('beneficiaries').update({ status: 'email_confirmed' }).eq('id', benId)
-    setNominations(prev => prev.map(n => n.id === benId ? { ...n, status: 'email_confirmed' } : n))
-    toast.success('Nomination accepted')
+    const nomination = nominations.find(n => n.id === benId)
+    const isTrustOnly = nomination?.access_requirement === 'trust_only'
+
+    if (isTrustOnly) {
+      // trust_only: use service-role edge function to grant access
+      // (direct DB update is blocked by RLS - status can only be email_confirmed or declined by beneficiary)
+      const { error } = await supabase.functions.invoke('send-beneficiary-invite', {
+        body: { beneficiaryId: benId, action: 'accept_trust_only' },
+      })
+      if (error) { toast.error('Could not accept nomination'); return }
+      setNominations(prev => prev.map(n => n.id === benId ? { ...n, status: 'access_granted' } : n))
+      toast.success('Accepted - vault access granted')
+    } else {
+      // id_only or death_certificate: just confirm email, Onfido/cert still required
+      await supabase.from('beneficiaries')
+        .update({ status: 'email_confirmed' })
+        .eq('id', benId)
+        .eq('linked_user_id', user.id)
+      setNominations(prev => prev.map(n => n.id === benId ? { ...n, status: 'email_confirmed' } : n))
+      toast.success('Nomination accepted')
+    }
   }
 
   const hasOwnVault = profile?.plan && profile.account_origin !== 'beneficiary'
@@ -111,7 +127,7 @@ export default function BeneficiaryDashboard({ onNav }) {
                   Want your own Digital Relative vault?
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
-                  Store your own passwords and documents for your family. Free to start — 5 entries, 1 beneficiary.
+                  Store your own passwords and documents for your family. Free to start - 5 entries, 1 beneficiary.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -181,7 +197,7 @@ export default function BeneficiaryDashboard({ onNav }) {
 
                           {n.status === 'email_confirmed' && (
                             <button className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                              onClick={() => toast('ID verification flow — requires Onfido integration')}>
+                              onClick={() => toast('ID verification flow - requires Onfido integration')}>
                               Verify your identity →
                             </button>
                           )}
@@ -193,7 +209,7 @@ export default function BeneficiaryDashboard({ onNav }) {
                           )}
 
                           {n.status === 'access_granted' && (
-                            <a href={`/beneficiary?token=${n.invite_token}`}
+                            <a href={`/beneficiary?token=${n.emergency_access_token || n.invite_token}`}
                               style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', padding: '4px 12px', background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', borderRadius: 6 }}>
                               Access vault →
                             </a>
@@ -215,7 +231,7 @@ export default function BeneficiaryDashboard({ onNav }) {
               Why we verify your identity
             </h3>
             <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
-              Digital Relative vaults contain sensitive personal and financial information. We require identity verification (a photo ID and quick selfie) to ensure only the right people can access a vault. This is a one-time process — once verified, you won't need to re-verify for any vault you're nominated for.
+              Digital Relative vaults contain sensitive personal and financial information. We require identity verification (a photo ID and quick selfie) to ensure only the right people can access a vault. This is a one-time process - once verified, you won't need to re-verify for any vault you're nominated for.
             </p>
           </div>
         )}

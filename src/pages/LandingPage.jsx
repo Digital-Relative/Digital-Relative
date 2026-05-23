@@ -96,7 +96,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
   }, [])
 
   const faqs = [
-    { q: 'Is my data safe?', a: 'Your vault is encrypted with AES-256, the same standard used by banks and the military. Passwords are encrypted before they leave your device using your personal vault PIN. We cannot read your data even if we wanted to, and neither can anyone else without your PIN.' },
+    { q: 'Is my data safe?', a: 'Your vault is encrypted with AES-256, the same standard used by banks and the military. Your data is stored exclusively in the UK (Supabase London). We cannot read your data even if we wanted to, and neither can anyone else without your PIN.' },
     { q: 'Who can access my vault?', a: 'Only the people you choose. You nominate beneficiaries and set their access level. They cannot access anything until the check-in protection fires or a verified death certificate is submitted, and even then there is a mandatory 48-hour hold before access is granted.' },
     { q: 'What is the check-in protection?', a: 'You set a check-in frequency, say every 30 days. If you stop checking in, Digital Relative sends you reminders. If you still do not check in after your full frequency period has passed, your nominated beneficiaries are notified. Nothing happens automatically without this trigger.' },
     { q: 'Do I need a will?', a: 'Digital Relative does not replace a will, but it works alongside one. We strongly recommend making a will if you have not. Your vault can store your solicitor\'s details and the location of your will so your family can find it quickly.' },
@@ -291,7 +291,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
 
           {/* Trust bar */}
           <div style={{ display: 'flex', gap: 24, justifyContent: 'center', marginTop: 56, flexWrap: 'wrap' }}>
-            {['AES-256 encrypted','GDPR compliant','UK data storage','Zero-knowledge','Free to start'].map(t => (
+            {['AES-256 encrypted','UK GDPR compliant','UK data storage','Zero-knowledge','Free to start'].map(t => (
               <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TEXT_SUB }}>
                 <span style={{ color: GOLD }}>✓</span> {t}
               </div>
@@ -620,8 +620,8 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
           <div style={{ display: 'flex', gap: 32, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
             {[
               { icon: '🔒', label: 'AES-256 encryption' },
-              { icon: '🇬🇧', label: 'UK data storage' },
-              { icon: '🛡️', label: 'GDPR compliant' },
+              { icon: '🇬🇧', label: 'UK data - never leaves' },
+              { icon: '🛡️', label: 'UK GDPR compliant' },
               { icon: '🔑', label: 'Zero-knowledge' },
               { icon: '📱', label: 'Two-factor auth' },
               { icon: '✓', label: 'No ads, ever' },
@@ -686,7 +686,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
             </div>
             <div>
               <div style={{ fontSize: 11, color: TEXT_SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Legal</div>
-              {[['/privacy.html','Privacy policy'],['/terms.html','Terms of service'],['mailto:security@digitalrelative.co.uk','Security']].map(([href,label]) => (
+              {[['/?page=privacy','Privacy policy'],['/?page=terms','Terms of service'],['mailto:security@digitalrelative.co.uk','Security']].map(([href,label]) => (
                 <div key={label} style={{ marginBottom: 8 }}>
                   <a href={href} style={{ fontSize: 13, color: TEXT_SUB, textDecoration: 'none' }}>{label}</a>
                 </div>
@@ -698,7 +698,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
               2024 Digital Relative Ltd. All rights reserved.
             </div>
             <div style={{ fontSize: 12, color: TEXT_SUB }}>
-              ICO Registration: pending · Data stored in EU (London)
+              ICO Registration: pending · All data stored in UK (London)
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
 
@@ -28,10 +28,15 @@ const MAX_ATTEMPTS = 5
 const CODE_EXPIRY_MINUTES = 10
 
 async function hashCode(code: string, userId: string): Promise<string> {
-  const enc = new TextEncoder()
-  const data = enc.encode(code + userId) // salt with userId
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  // Use PBKDF2 not plain SHA-256 — OTPs have only 10^6 entropy
+  // PBKDF2 makes offline cracking expensive even with a full DB dump
+  const enc    = new TextEncoder()
+  const keyMat = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveBits'])
+  const bits   = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(userId), iterations: 100_000 },
+    keyMat, 256
+  )
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -142,7 +147,7 @@ serve(async (req) => {
       // Send email
       await sendEmail({
         to:      userEmail,
-        subject: 'Digital Relative — your verification code',
+        subject: 'Digital Relative - your verification code',
         html:    mfaEmailTemplate(userName, code),
       })
 
@@ -203,13 +208,25 @@ serve(async (req) => {
       // Mark email MFA as enrolled in profile
       await supabase.from('profiles').update({ mfa_enrolled: true, mfa_email_fallback: true }).eq('id', userId)
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, valid: true }), {
         headers: { ...hdrs, 'Content-Type': 'application/json' },
       })
     }
 
     // ── GENERATE RECOVERY CODES ──────────────────────────────────────────────
     if (action === 'generate_recovery_codes') {
+      // LOW-1 fix: rate limit recovery code generation to 3 per 24 hours
+      const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString()
+      const { count: regenCount } = await supabase
+        .from('mfa_recovery_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gt('created_at', oneDayAgo)
+      if ((regenCount ?? 0) >= 9) { // 3 sets of 8 codes = 24 rows
+        return new Response(JSON.stringify({ error: 'Too many code regenerations today' }), {
+          status: 429, headers: { ...hdrs, 'Content-Type': 'application/json' },
+        })
+      }
       // Security: only allow code generation for accounts that just completed MFA setup
       // We verify by checking if there's a recent MFA enrollment (within last 2 minutes)
       // For TOTP: Supabase handles this. For email: we check mfa_enrolled was just set.
@@ -310,6 +327,47 @@ serve(async (req) => {
       // (the frontend will call onVerified() after this)
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...hdrs, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // HIGH-4 fix: service-role unenroll after email OTP verification
+    if (action === 'mfa_unenroll') {
+      // CRIT-1 fix: read code from body directly in this scope; use hashCode helper for PBKDF2
+      const unenrollCode = body?.code
+      if (!unenrollCode || !/^\d{6}$/.test(unenrollCode)) throw new Error('Invalid code format')
+      const { data: mfaCode } = await supabase
+        .from('mfa_email_codes')
+        .select('code_hash, used, expires_at, attempts')
+        .eq('user_id', userId)
+        .eq('used', false)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (!mfaCode) throw new Error('Code expired')
+      // MED-1 fix: enforce same attempt lockout as verify_code
+      if ((mfaCode.attempts ?? 0) >= MAX_ATTEMPTS) {
+        throw new Error('Too many incorrect attempts. Request a new code.')
+      }
+      const inputHash = await hashCode(unenrollCode, userId)
+      if (!constantTimeEqual(inputHash, mfaCode.code_hash)) {
+        await supabase.from('mfa_email_codes')
+          .update({ attempts: (mfaCode.attempts ?? 0) + 1 })
+          .eq('user_id', userId).eq('used', false)
+        throw new Error('Incorrect code')
+      }
+      await supabase.from('mfa_email_codes').update({ used: true }).eq('user_id', userId).eq('used', false)
+      // Service role deletes TOTP factors — no AAL2 required server-side
+      const { data: factors } = await supabase.auth.admin.listFactors({ userId })
+      for (const factor of (factors?.factors || [])) {
+        if (factor.factor_type === 'totp') {
+          await supabase.auth.admin.mfa.deleteFactor({ id: factor.id, userId })
+        }
+      }
+      // MED-2 fix: clear both mfa_enrolled and mfa_email_fallback for consistent state
+      await supabase.from('profiles').update({ mfa_enrolled: false, mfa_email_fallback: false }).eq('id', userId)
+      return new Response(JSON.stringify({ success: true, unenrolled: true }), {
+        status: 200, headers: { ...hdrs, 'Content-Type': 'application/json' },
       })
     }
 

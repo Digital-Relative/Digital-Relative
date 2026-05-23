@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
 import { partnerInviteEmail } from '../_shared/emails.ts'
@@ -151,7 +151,7 @@ serve(async (req) => {
       if (partnerEmail2) {
         await sendEmail({
           to:      partnerEmail2,
-          subject: `${requester?.full_name || 'Someone'} invited you to a Couples vault on Digital Relative`,
+          subject: `${(requester?.full_name || 'Someone').replace(/[\r\n]/g, ' ').slice(0, 100)} invited you to a Couples vault on Digital Relative`,
           html:    partnerInviteEmail(partnerProfile?.full_name || 'there', requester?.full_name || 'Someone', 'https://digitalrelative.co.uk/?page=couples'),
         })
       }
@@ -192,7 +192,7 @@ serve(async (req) => {
       // Send email server-side only — invite_code never goes to client
       await sendEmail({
         to:      partnerEmail,
-        subject: `${requester?.full_name || 'Your partner'} has invited you to Digital Relative`,
+        subject: `${(requester?.full_name || 'Your partner').replace(/[\r\n]/g, ' ').slice(0, 100)} has invited you to Digital Relative`,
         html:    partnerInviteEmail('there', requester?.full_name || 'Your partner', inviteUrl),
       })
 

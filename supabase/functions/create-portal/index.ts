@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 
 const ALLOWED_ORIGINS = new Set([
   'https://digitalrelative.co.uk',

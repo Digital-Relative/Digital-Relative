@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 
 const ALLOWED_ORIGINS = new Set([
   'https://digitalrelative.co.uk',
@@ -126,7 +126,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({ stripe_customer_id: customerId }),
       })
-      if (!patchRes.ok) console.error('Failed to save stripe_customer_id — duplicate customer risk')
+      if (!patchRes.ok) console.error('Failed to save stripe_customer_id - duplicate customer risk')
     }
 
     const sessionRes = await fetchWithTimeout('https://api.stripe.com/v1/checkout/sessions', {

@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
 
@@ -32,12 +32,13 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000
   finally { clearTimeout(timer) }
 }
 
-const ONFIDO_API_KEY    = Deno.env.get('ONFIDO_API_KEY') || ''
-const ONFIDO_WEBHOOK_TOKEN = Deno.env.get('ONFIDO_WEBHOOK_TOKEN') || ''
-const ONFIDO_BASE       = 'https://api.eu.onfido.com/v3.6'
+const ONFIDO_BASE       = 'https://api.eu.onfido.com/v3.6' // URL constant - not a secret
 const UUID_RE           = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 serve(async (req) => {
+  // L-4 fix: read inside handler so values are fresh after secret rotation
+  const ONFIDO_API_KEY       = Deno.env.get('ONFIDO_API_KEY') || ''
+  const ONFIDO_WEBHOOK_TOKEN = Deno.env.get('ONFIDO_WEBHOOK_TOKEN') || ''
   const origin = req.headers.get('origin') || ''
   const hdrs   = corsHeaders(origin)
 
@@ -54,7 +55,7 @@ serve(async (req) => {
   if (url.pathname.endsWith('/webhook')) {
     // FIX EF-6: guard empty token
     if (!ONFIDO_WEBHOOK_TOKEN) {
-      console.error('ONFIDO_WEBHOOK_TOKEN not configured — rejecting all webhooks')
+      console.error('ONFIDO_WEBHOOK_TOKEN not configured - rejecting all webhooks')
       return new Response('Forbidden', { status: 403 })
     }
 
@@ -91,6 +92,17 @@ serve(async (req) => {
     const status = event?.payload?.action === 'check.completed'
       ? (event?.payload?.object?.status === 'complete' ? 'verified' : 'failed')
       : 'submitted'
+
+    // Prevent status regression — never downgrade a verified record
+    // H-2 fix: use verification.beneficiary_id (UUID), not checkId (Onfido string)
+    const { data: existingStatus } = await supabase
+      .from('beneficiary_verifications')
+      .select('verification_status')
+      .eq('beneficiary_id', verification.beneficiary_id)
+      .single()
+    if (existingStatus?.verification_status === 'verified' && status !== 'verified') {
+      return new Response('OK', { status: 200 })
+    }
 
     // Update verification status
     await supabase.from('beneficiary_verifications').update({
@@ -175,49 +187,81 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401, headers: hdrs })
     }
 
-    // 1. Create Onfido applicant
-    const applicantRes = await fetchWithTimeout(`${ONFIDO_BASE}/applicants`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token token=${ONFIDO_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({ first_name: firstName, last_name: lastName, email }),
-    })
-    const applicant = await applicantRes.json()
-    if (!applicant.id) throw new Error('Failed to create Onfido applicant')
-
-    // 2. Generate SDK token for the frontend
-    const sdkRes = await fetchWithTimeout(`${ONFIDO_BASE}/sdk_token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token token=${ONFIDO_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        applicant_id: applicant.id,
-        referrer:     'https://digitalrelative.co.uk/*',
-      }),
-    })
-    const sdkToken = await sdkRes.json()
-
-    // 3. Create verification record in DB
-    const { data: verification } = await supabase
+    // Rate limit: max 3 verification attempts per hour per beneficiary
+    const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString()
+    const { count: recentAttempts } = await supabase
       .from('beneficiary_verifications')
-      .upsert([{
-        beneficiary_id:      beneficiaryId,
-        verification_status: 'pending',
-        verification_provider: 'onfido',
-        provider_check_id:   applicant.id,
-      }], { onConflict: 'beneficiary_id' })
-      .select()
+      .select('*', { count: 'exact', head: true })
+      .eq('beneficiary_id', beneficiaryId)
+      .gt('created_at', oneHourAgo)
+    if ((recentAttempts ?? 0) >= 3) {
+      return new Response(JSON.stringify({ error: 'Too many verification attempts. Please try again later.' }), {
+        status: 429, headers: { ...hdrs, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Reuse existing applicant_id if already created
+    const { data: existingVerif } = await supabase
+      .from('beneficiary_verifications')
+      .select('provider_check_id')
+      .eq('beneficiary_id', beneficiaryId)
+      .not('provider_check_id', 'is', null)
       .single()
 
-    return new Response(JSON.stringify({
-      sdkToken: sdkToken.token,
-      applicantId: applicant.id,
-      verificationId: verification?.id,
-    }), { headers: { ...hdrs, 'Content-Type': 'application/json' } })
+    let applicantId: string | null = existingVerif?.provider_check_id || null
+
+    if (!applicantId) {
+      // 1. Create Onfido applicant
+      const safeFirst = firstName.trim().slice(0, 100)
+      const safeLast  = lastName.trim().slice(0, 100)
+      if (!safeFirst || !safeLast) throw new Error('Name is required')
+
+      const applicantRes = await fetchWithTimeout(`${ONFIDO_BASE}/applicants`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: safeFirst, last_name: safeLast, email }),
+      })
+      const applicant = await applicantRes.json()
+      if (!applicant.id) throw new Error('Failed to create Onfido applicant')
+
+      // 2. Generate SDK token
+      const sdkRes = await fetchWithTimeout(`${ONFIDO_BASE}/sdk_token`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicant_id: applicant.id, referrer: 'https://digitalrelative.co.uk/*' }),
+      })
+      const sdkToken = await sdkRes.json()
+
+      // 3. Create verification record
+      const { data: verification } = await supabase
+        .from('beneficiary_verifications')
+        .upsert([{
+          beneficiary_id:        beneficiaryId,
+          verification_status:   'pending',
+          verification_provider: 'onfido',
+          provider_check_id:     applicant.id,
+        }], { onConflict: 'beneficiary_id' })
+        .select().single()
+
+      return new Response(JSON.stringify({
+        sdkToken: sdkToken.token,
+        applicantId: applicant.id,
+        verificationId: verification?.id,
+      }), { headers: { ...hdrs, 'Content-Type': 'application/json' } })
+
+    } else {
+      // Reuse existing applicant — generate a fresh SDK token only
+      const sdkRes = await fetchWithTimeout(`${ONFIDO_BASE}/sdk_token`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token token=${ONFIDO_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicant_id: applicantId, referrer: 'https://digitalrelative.co.uk/*' }),
+      })
+      const sdkToken = await sdkRes.json()
+      return new Response(JSON.stringify({
+        sdkToken: sdkToken.token,
+        applicantId,
+      }), { headers: { ...hdrs, 'Content-Type': 'application/json' } })
+    }
 
   } catch (err) {
     console.error('Verify identity error:', err.message)

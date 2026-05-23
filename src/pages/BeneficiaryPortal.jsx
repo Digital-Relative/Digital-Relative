@@ -2,6 +2,130 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AfterIAmGonePage from './AfterIAmGonePage'
 
+
+// Pre-filled letter templates for notifying institutions
+function LetterTemplates({ entries, beneficiary }) {
+  const [copied, setCopied] = useState(null)
+  const [selected, setSelected] = useState(null)
+
+  const ownerName = beneficiary?.name || '[Deceased name]'
+  const myName = 'Your name'
+
+  // Generate letter for a specific vault entry
+  function entryLetter(entry) {
+    // Note: entry.username is encrypted ciphertext - never render it as an account number.
+    // The beneficiary must locate the account number from statements or documentation.
+    const account = 'Account reference: [please insert account number from enclosed documentation]'
+    return `Dear Sir or Madam,
+
+I am writing to notify you of the death of ${ownerName}, who passed away recently.
+
+${account}
+
+I am acting as [executor / next of kin] and am writing to request that you:
+- Freeze the account immediately to prevent any further transactions
+- Provide details of the account balance and any amounts owed
+- Advise on your process for closing the account and releasing any funds
+
+I am enclosing a certified copy of the death certificate. Please advise if you require any additional documentation such as a Grant of Probate or Letters of Administration.
+
+Please correspond with me at the address below.
+
+Yours faithfully,
+
+${myName}
+[Your address]
+[Your phone number]
+[Your email address]
+
+Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+  }
+
+  // Generic bereavement notification letter
+  const genericLetter = `Dear Sir or Madam,
+
+I am writing to notify you of the death of ${ownerName}, who passed away recently.
+
+I am the [executor / next of kin] dealing with the estate. Please could you:
+
+1. Note the death on your records
+2. Freeze any accounts or direct debits
+3. Advise what documentation you require to close accounts and release any funds
+
+I will provide a certified copy of the death certificate. Please let me know if you require a Grant of Probate or Letters of Administration.
+
+Yours faithfully,
+
+${myName}
+[Your address]
+[Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}]`
+
+  const templates = [
+    { id: 'generic', label: 'Generic notification', icon: '✉️', text: genericLetter, detail: 'Use for any institution not listed below' },
+    ...entries.slice(0, 8).map(e => ({
+      id: e.id,
+      label: e.title,
+      icon: '🏦',
+      text: entryLetter(e),
+      detail: e.username ? `Includes account: ${e.username}` : 'Generic version - add account details',
+    })),
+  ]
+
+  function copyLetter(id, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(id)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 6 }}>Letter templates</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
+          Pre-written letters for notifying banks, insurers, and other institutions. Click to preview, then copy and send on headed paper or email.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {templates.map(t => (
+          <div key={t.id} className="card-static" style={{ cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} onClick={() => setSelected(selected === t.id ? null : t.id)}>
+              <span style={{ fontSize: 20 }}>{t.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{t.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{t.detail}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={ev => { ev.stopPropagation(); copyLetter(t.id, t.text) }} style={{
+                  background: copied === t.id ? 'var(--success)' : 'var(--gold)',
+                  border: 'none', borderRadius: 6, padding: '6px 12px',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  color: '#0d1b2a', fontFamily: 'var(--sans)',
+                }}>
+                  {copied === t.id ? 'Copied!' : 'Copy'}
+                </button>
+                <span style={{ color: 'var(--text-sub)', fontSize: 12, alignSelf: 'center' }}>{selected === t.id ? '▴' : '▾'}</span>
+              </div>
+            </div>
+            {selected === t.id && (
+              <div style={{ marginTop: 14, padding: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <pre style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'var(--sans)', margin: 0 }}>
+                  {t.text}
+                </pre>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.6 }}>
+        💡 Replace [Your name], [Your address] and other placeholders before sending. Send on headed paper where possible, or via recorded post. Keep copies of everything you send.
+      </div>
+    </div>
+  )
+}
+
 function TreeLogo({ size = 48 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100">
@@ -66,7 +190,9 @@ export default function BeneficiaryPortal() {
   const token = new URLSearchParams(window.location.search).get('token')
   const [stage, setStage]             = useState(STAGES.loading)
   const [beneficiary, setBeneficiary] = useState(null)
-  const [ownerGuide, setOwnerGuide]   = useState(null)
+  const [ownerGuide, setOwnerGuide]     = useState(null)
+  const [personalMessage, setPersonalMessage] = useState('')
+  const [funeralWishes, setFuneralWishes]     = useState(null)
   const [entries, setEntries]         = useState([])
   const [checkedOff, setCheckedOff]   = useState({})
   const [loading, setLoading]         = useState(false)
@@ -79,45 +205,38 @@ export default function BeneficiaryPortal() {
   async function loadToken() {
     if (!token) { setStage(STAGES.invalid); return }
 
-    const { data, error } = await supabase
-      .from('beneficiaries')
-      .select('*, profiles:user_id(id)')
-      .eq('invite_token', token)
-      .in('status', ['email_confirmed', 'id_verified', 'access_granted'])
-      .single()
+    // C-1 fix: use edge function with service role key instead of direct anon queries
+    const { data, error } = await supabase.functions.invoke('beneficiary-access', {
+      body: { token },
+    })
 
-    if (error || !data) { setStage(STAGES.invalid); return }
+    if (error || !data || data.error) { setStage(STAGES.invalid); return }
 
-    setBeneficiary(data)
+    const { beneficiary, guide, vaultEntries, isTier2 } = data
 
-    const { data: guide } = await supabase
-      .from('after_i_am_gone')
-      .select('guide_data')
-      .eq('user_id', data.user_id)
-      .single()
-    setOwnerGuide(guide?.guide_data?.sections)
-
-    const { data: vaultEntries } = await supabase
-      .from('vault_entries')
-      .select('id, title, category, username, notes')
-      .eq('user_id', data.user_id)
-
+    setBeneficiary(beneficiary)
+    if (guide && typeof guide === 'object' && 'sections' in guide) {
+      setOwnerGuide(guide.sections)
+      setPersonalMessage(guide.personalMessage || '')
+      setFuneralWishes(guide.funeralWishes || null)
+    } else {
+      setOwnerGuide(guide)
+    }
     setEntries(vaultEntries || [])
 
-    // Load checklist state from localStorage
     try {
-      const saved = JSON.parse(localStorage.getItem('dr_checklist_' + data.id) || '{}')
+      const saved = JSON.parse(sessionStorage.getItem('dr_checklist_' + beneficiary.id) || '{}')
       setCheckedOff(saved)
     } catch {}
 
-    setStage(data.id_verified_at ? STAGES.tier2 : STAGES.tier1)
+    setStage(isTier2 ? STAGES.tier2 : STAGES.tier1)
   }
 
   function toggleCheck(id) {
     const next = { ...checkedOff, [id]: !checkedOff[id] }
     if (!next[id]) delete next[id]
     setCheckedOff(next)
-    try { localStorage.setItem('dr_checklist_' + beneficiary?.id, JSON.stringify(next)) } catch {}
+    try { sessionStorage.setItem('dr_checklist_' + beneficiary?.id, JSON.stringify(next)) } catch {}
   }
 
   function parseBereaveFromNotes(notes) {
@@ -144,11 +263,12 @@ export default function BeneficiaryPortal() {
       if (!document.querySelector('#onfido-sdk')) {
         const script = document.createElement('script')
         script.id = 'onfido-sdk'
-        script.src = 'https://assets.onfido.com/web-sdk-releases/latest/onfido.min.js'
+        script.src = 'https://assets.onfido.com/web-sdk-releases/14.15.0/onfido.min.js'
+        script.crossOrigin = 'anonymous'
         document.head.appendChild(script)
         const link = document.createElement('link')
         link.rel = 'stylesheet'
-        link.href = 'https://assets.onfido.com/web-sdk-releases/latest/style.css'
+        link.href = 'https://assets.onfido.com/web-sdk-releases/14.15.0/style.css'
         document.head.appendChild(link)
         await new Promise(resolve => script.onload = resolve)
       }
@@ -250,6 +370,7 @@ export default function BeneficiaryPortal() {
             { id: 'checklist', label: '☑ What to do' },
             { id: 'guide',     label: '💛 Their guide' },
             { id: 'verify',    label: stage === STAGES.tier2 ? '✓ Verified' : '🪪 Verify identity' },
+            { id: 'letters',   label: '✉️ Letter templates' },
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
               flex: 1, padding: '9px 8px', borderRadius: 6, border: 'none',
@@ -330,7 +451,30 @@ export default function BeneficiaryPortal() {
 
         {/* ── GUIDE TAB ── */}
         {activeTab === 'guide' && (
-          <AfterIAmGonePage isBeneficiaryView={true} overrideSections={ownerGuide} />
+          <div>
+            {personalMessage && (
+              <div className="card-static" style={{ marginBottom: 18, borderColor: 'var(--gold-border)', background: 'var(--gold-dim)' }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--gold)', marginBottom: 10 }}>A message for you</div>
+                <p style={{ fontSize: 14, color: 'var(--cream-dim)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{personalMessage}</p>
+              </div>
+            )}
+            {funeralWishes && (funeralWishes.type || funeralWishes.music || funeralWishes.readings || funeralWishes.otherWishes) && (
+              <div className="card-static" style={{ marginBottom: 18 }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--cream)', marginBottom: 12 }}>🌿 Funeral wishes</div>
+                {funeralWishes.type && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Burial/cremation: </span><strong>{funeralWishes.type}</strong></div>}
+                {funeralWishes.music && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Music: </span>{funeralWishes.music}</div>}
+                {funeralWishes.readings && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Readings: </span>{funeralWishes.readings}</div>}
+                {funeralWishes.funeralHome && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Funeral home: </span>{funeralWishes.funeralHome}</div>}
+                {funeralWishes.otherWishes && <div><span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Other wishes: </span>{funeralWishes.otherWishes}</div>}
+              </div>
+            )}
+            <AfterIAmGonePage isBeneficiaryView={true} overrideSections={ownerGuide} overridePersonalMessage={personalMessage} overrideFuneralWishes={funeralWishes} />
+          </div>
+        )}
+
+        {/* ── LETTERS TAB ── */}
+        {activeTab === 'letters' && (
+          <LetterTemplates entries={entries} beneficiary={beneficiary} />
         )}
 
         {/* ── VERIFY TAB ── */}

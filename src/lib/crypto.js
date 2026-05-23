@@ -3,7 +3,7 @@
 
 const ALGO              = 'AES-GCM'
 const KEY_LEN           = 256
-const IV_LEN            = 12       // 96-bit IV — GCM standard
+const IV_LEN            = 12       // 96-bit IV - GCM standard
 const PBKDF2_ITERATIONS = 600_000  // OWASP 2024 recommendation for PBKDF2-SHA256
 const SALT_BYTES        = 32       // 256-bit random salt
 
@@ -60,7 +60,7 @@ function fromBase64(str) {
 
 // ── Encrypt ─────────────────────────────────────────────────────────────────
 export async function encrypt(plaintext) {
-  if (!_sessionKey) throw new Error('Vault locked — please sign in again')
+  if (!_sessionKey) throw new Error('Vault locked - please sign in again')
   if (typeof plaintext !== 'string') throw new Error('Plaintext must be a string')
   if (plaintext.length > 100_000) throw new Error('Entry too large')
 
@@ -79,7 +79,7 @@ export async function encrypt(plaintext) {
 
 // ── Decrypt ─────────────────────────────────────────────────────────────────
 export async function decrypt(encoded) {
-  if (!_sessionKey) throw new Error('Vault locked — please sign in again')
+  if (!_sessionKey) throw new Error('Vault locked - please sign in again')
   if (typeof encoded !== 'string' || encoded.length === 0) throw new Error('Invalid ciphertext')
   try {
     const combined  = fromBase64(encoded)
@@ -91,7 +91,7 @@ export async function decrypt(encoded) {
     )
     return new TextDecoder().decode(plainBuf)
   } catch {
-    throw new Error('Decryption failed — data may be corrupt or password incorrect')
+    throw new Error('Decryption failed - data may be corrupt or password incorrect')
   }
 }
 
@@ -122,18 +122,16 @@ export async function decryptEntry(entry) {
 }
 
 /*
- * PASSWORD CHANGE WARNING (FIX CR-2)
- * ────────────────────────────────────
- * Vault data is encrypted with a key derived from the user's password.
- * Changing password via "forgot password" or Settings will derive a DIFFERENT
- * key — existing vault entries will become unreadable.
+ * VAULT KEY ARCHITECTURE NOTE
+ * ────────────────────────────
+ * Vault data is encrypted with a key derived from the user's VAULT PIN, NOT
+ * their Supabase login password. These are completely separate credentials.
  *
- * Re-encryption flow (not yet implemented):
- * 1. Decrypt all entries with old key
- * 2. Change password in Supabase Auth
- * 3. Derive new key from new password
- * 4. Re-encrypt and save all entries
+ * This means:
+ * - Supabase "forgot password" email resets DO NOT affect vault data
+ * - Only the vault PIN controls encryption/decryption
+ * - Changing vault PIN requires re-encrypting all entries (handled in ChangePasswordPage)
  *
- * Until this is built: password reset emails will break vault access.
- * Show a clear warning before any password change UI.
+ * The comment about "password reset breaking vault access" was written before
+ * the PIN system was implemented and is now incorrect.
  */

@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
 // Internal admin page for manual death certificate review
-// Access: /admin/review?request={id}&token={ADMIN_SECRET_TOKEN}
+// Access: /admin/review?request={requestId}&token={per-request-review-token}
+// The review token is generated per access request, stored in access_requests.review_token.
+// It is single-use. The global ADMIN_SECRET_TOKEN env var is not used for access control.
 // This page is not in the main nav — accessed only via email link
 
 export default function AdminReviewPage() {
@@ -34,10 +36,9 @@ export default function AdminReviewPage() {
 
     // FIX MISC-1: Fetch document URL via edge function (service role), not anon client
     // The death-certificates bucket is private — signed URLs require service role
-    if (data.request.certificate_path) {
-      // Document is served as a data URL via the edge function
-      // (edge function fetches from private storage using service role)
-      setImageUrl(`/_edge/emergency-access-doc?request=${data.request.id}&token=${token}`)
+    if (data.certificateUrl) {
+      // L-4 fix: signed URL returned directly from admin_get (5-minute expiry)
+      setImageUrl(data.certificateUrl)
     }
     setLoading(false)
   }
@@ -52,7 +53,7 @@ export default function AdminReviewPage() {
       })
       if (error) throw error
       setDone(decision)
-      toast.success(decision === 'approve' ? 'Access approved — beneficiaries notified' : 'Request rejected — submitter notified')
+      toast.success(decision === 'approve' ? 'Access approved - beneficiaries notified' : 'Request rejected - submitter notified')
     } catch (err) {
       toast.error(err.message || 'Decision failed')
     } finally {
@@ -86,7 +87,7 @@ export default function AdminReviewPage() {
     <div style={{ minHeight: '100vh', background: '#0d1b2a', fontFamily: 'sans-serif', color: '#dde5ee', padding: '32px 24px' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <div style={{ fontFamily: 'Georgia,serif', fontSize: 22, color: '#c9a84c', marginBottom: 4 }}>Digital Relative</div>
-        <div style={{ fontSize: 12, color: '#7a93aa', marginBottom: 32 }}>Admin — Manual review</div>
+        <div style={{ fontSize: 12, color: '#7a93aa', marginBottom: 32 }}>Admin - Manual review</div>
 
         <h1 style={{ fontSize: 24, marginBottom: 4 }}>Death certificate review</h1>
         <div style={{ fontSize: 13, color: '#7a93aa', marginBottom: 28 }}>Request ID: {requestId}</div>
@@ -98,8 +99,8 @@ export default function AdminReviewPage() {
             ['Submitted', new Date(request.created_at).toLocaleString('en-GB')],
             ['Certificate type', request.certificate_type],
             ['Onfido confidence', request.onfido_confidence || 'Not checked'],
-            ['Onfido extracted name', request.onfido_extracted_name || '—'],
-            ['Onfido date extracted', request.onfido_extracted_date || '—'],
+            ['Onfido extracted name', request.onfido_extracted_name || '-'],
+            ['Onfido date extracted', request.onfido_extracted_date || '-'],
           ].map(([k, v]) => (
             <div key={k} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: '#7a93aa', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k}</div>
@@ -130,7 +131,7 @@ export default function AdminReviewPage() {
             Notes (required for rejection, optional for approval)
           </label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
-            placeholder="e.g. Document verified — name matches vault owner. OR: Document unclear — unable to read name."
+            placeholder="e.g. Document verified - name matches vault owner. OR: Document unclear - unable to read name."
             style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#dde5ee', padding: '12px 14px', fontSize: 13, fontFamily: 'sans-serif', resize: 'vertical', minHeight: 80, outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
@@ -141,14 +142,14 @@ export default function AdminReviewPage() {
             border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600,
             cursor: deciding ? 'not-allowed' : 'pointer', fontFamily: 'sans-serif',
           }}>
-            {deciding ? 'Processing…' : '✓ Approve — grant access'}
+            {deciding ? 'Processing…' : '✓ Approve - grant access'}
           </button>
           <button onClick={() => handleDecision('reject')} disabled={deciding} style={{
             flex: 1, padding: '14px', background: '#e05252', color: '#fff',
             border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600,
             cursor: deciding ? 'not-allowed' : 'pointer', fontFamily: 'sans-serif',
           }}>
-            {deciding ? 'Processing…' : '✗ Reject — request more info'}
+            {deciding ? 'Processing…' : '✗ Reject - request more info'}
           </button>
         </div>
 

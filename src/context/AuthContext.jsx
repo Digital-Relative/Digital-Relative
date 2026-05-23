@@ -61,19 +61,30 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchProfile(userId) {
+    // MED-3 fix: only select required columns — exclude stripe IDs and mfa_backup_email
+    const cols = [
+      'id', 'full_name', 'plan', 'plan_renewal',
+      'created_at', 'updated_at',
+      'checkin_frequency_days', 'last_checkin',
+      'gdpr_consent_at', 'account_origin',
+      'vault_pin_set', 'mfa_enrolled', 'mfa_email_fallback',
+      'encryption_salt', 'key_verification',
+      'marketing_opt_in', 'preferred_language',
+      'getting_started_dismissed', 'getting_started_done_items',
+    ].join(',')
     const { data } = await supabase
       .from('profiles')
-      .select('*')
+      .select(cols)
       .eq('id', userId)
       .single()
     setProfile(data)
   }
 
-  async function signUp({ email, password, fullName }) {
+  async function signUp({ email, password, fullName, marketingOptIn = false }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName, marketing_opt_in: marketingOptIn } },
     })
     if (error) throw error
     // Do NOT derive a key from the password here.
@@ -108,7 +119,7 @@ export function AuthProvider({ children }) {
 
   async function updateProfile(updates) {
     // Whitelist allowed fields — prevent client escalating plan
-    const safeFields = ['full_name', 'last_checkin', 'checkin_frequency_days']
+    const safeFields = ['full_name', 'last_checkin', 'checkin_frequency_days', 'marketing_opt_in', 'preferred_language', 'getting_started_dismissed', 'getting_started_done_items']
     const safeUpdates = Object.fromEntries(
       Object.entries(updates).filter(([k]) => safeFields.includes(k))
     )

@@ -43,7 +43,7 @@ function InviteForm({ onResult }) {
       </div>
       <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
         <strong style={{ color: 'var(--text)' }}>What happens next:</strong><br />
-        If your partner already has a Digital Relative account, they'll see a notification in their dashboard and receive an email. If not, they'll receive an email to create their own account. Either way, both of you keep your own private vault — sharing is your choice.
+        If your partner already has a Digital Relative account, they'll see a notification in their dashboard and receive an email. If not, they'll receive an email to create their own account. Either way, both of you keep your own private vault - sharing is your choice.
       </div>
       <button className="btn-primary" type="submit" disabled={loading} style={{ padding: 12 }}>
         {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Send partner invite →'}
@@ -261,9 +261,9 @@ export default function CouplesPage({ onNav }) {
     setShowInvite(false)
     if (result.creditInfo) setCreditModal(result)
     else if (result.partnerExists) {
-      toast.success(`Invite sent to ${email} — they'll see it in their dashboard`)
+      toast.success(`Invite sent to ${email} - they'll see it in their dashboard`)
     } else {
-      toast.success(`Invite sent to ${email} — they'll receive an email to create their account`)
+      toast.success(`Invite sent to ${email} - they'll receive an email to create their account`)
     }
     refresh()
   }
@@ -340,7 +340,7 @@ export default function CouplesPage({ onNav }) {
         </div>
       )}
 
-      {/* ── Pending — waiting for partner ── */}
+      {/* ── Pending - waiting for partner ── */}
       {link?.status === 'pending' && isRequester && (
         <div className="fade-up-2 card-static" style={{ marginBottom: 24, textAlign: 'center', padding: '28px' }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
@@ -349,7 +349,7 @@ export default function CouplesPage({ onNav }) {
         </div>
       )}
 
-      {/* ── Pending — they received an invite ── */}
+      {/* ── Pending - they received an invite ── */}
       {link?.status === 'pending' && !isRequester && (
         <div className="fade-up-2 card-static" style={{ borderColor: 'var(--gold-border)', background: 'var(--gold-dim)', marginBottom: 24 }}>
           <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--gold)', marginBottom: 8 }}>Partner vault invitation</h3>
@@ -357,7 +357,7 @@ export default function CouplesPage({ onNav }) {
             <strong style={{ color: 'var(--text)' }}>{link.requester?.full_name || 'Your partner'}</strong> has invited you to link your vaults. You'll each keep your own private vault. Sharing is optional and reversible at any time.
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn-primary" onClick={async () => { await acceptLink(link.id); toast.success('Partner link accepted — your vaults are now linked') }}>
+            <button className="btn-primary" onClick={async () => { await acceptLink(link.id); toast.success('Partner link accepted - your vaults are now linked') }}>
               Accept
             </button>
             <button className="btn-ghost" onClick={async () => { await declineLink(link.id); toast('Invitation declined') }}>

@@ -1,9 +1,10 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
 import {
   checkinReminderEmail,
   deadMansSwitchEmail,
+  accessGrantedEmail,
   expiryReminderEmail,
 } from '../_shared/emails.ts'
 
@@ -79,7 +80,7 @@ serve(async (req) => {
         if (email) {
           const sent = await sendEmail({
             to:      email,
-            subject: `Digital Relative — check-in reminder (${overdueDays} days overdue)`,
+            subject: `Digital Relative - check-in reminder (${overdueDays} days overdue)`,
             html:    checkinReminderEmail(fullName, overdueDays, `${APP_URL}/?checkin=1`),
           })
           if (sent) results.checkinReminders++
@@ -145,7 +146,7 @@ serve(async (req) => {
         if (email) {
           const sent = await sendEmail({
             to:      email,
-            subject: `Digital Relative — ${userEntries.length} vault ${userEntries.length === 1 ? 'entry' : 'entries'} need attention`,
+            subject: `Digital Relative - ${userEntries.length} vault ${userEntries.length === 1 ? 'entry' : 'entries'} need attention`,
             html:    expiryReminderEmail(fullName, userEntries, `${APP_URL}/?page=vault`),
           })
 
@@ -171,7 +172,7 @@ serve(async (req) => {
     const { data: pendingGrants } = await supabase
       .from('access_requests')
       .select('*')
-      .eq('status', 'onfido_verified')
+      .in('status', ['onfido_verified', 'manually_approved'])
       .not('access_grant_after', 'is', null)
       .lt('access_grant_after', now.toISOString())
 
@@ -214,7 +215,9 @@ async function triggerDeadMansSwitch(userId: string, supabase: any, now: Date) {
     .in('status', ['email_confirmed', 'id_verified'])
 
   const { data: authUser } = await supabase.auth.admin.getUserById(userId)
-  const ownerName = authUser?.user?.user_metadata?.full_name || 'Your family member'
+  const rawOwnerName = authUser?.user?.user_metadata?.full_name || 'Your family member'
+  // L-3 fix: strip newlines and limit length to prevent email header injection
+  const ownerName = rawOwnerName.replace(/[\r\n]/g, ' ').slice(0, 100)
 
   for (const ben of bens ?? []) {
     // Generate a fresh access token — never reuse the original invite_token
@@ -230,7 +233,7 @@ async function triggerDeadMansSwitch(userId: string, supabase: any, now: Date) {
     await sendEmail({
       to:      ben.email,
       subject: `${ownerName} has set up Digital Relative for you`,
-      html:    deadMansSwitchEmail(ben.name || 'there', ownerName, accessUrl),
+      html:    accessGrantedEmail(ben.name || 'there', rawOwnerName || ownerName, accessUrl),
     })
   }
 
@@ -250,14 +253,21 @@ async function triggerDeadMansSwitch(userId: string, supabase: any, now: Date) {
 async function grantVaultAccess(request: any, supabase: any) {
   const { vault_owner_id, id: requestId } = request
   const APP_URL = 'https://digitalrelative.co.uk'
+  // HIGH-1 fix: also select access_requirement so we only grant to beneficiaries
+  // whose individual requirement has been satisfied by this verification event.
+  // trust_only beneficiaries are granted at acceptance time — exclude them here.
+  // death_certificate and id_only beneficiaries are granted when a request completes.
   const { data: bens } = await supabase
     .from('beneficiaries')
-    .select('id, email, name, invite_token, id_verified_at')
+    .select('id, email, name, invite_token, id_verified_at, access_requirement')
     .eq('user_id', vault_owner_id)
     .in('status', ['email_confirmed', 'id_verified'])
+    .in('access_requirement', ['death_certificate', 'id_only'])
 
   const ownerAuth = await supabase.auth.admin.getUserById(vault_owner_id)
-  const ownerName = ownerAuth.data?.user?.user_metadata?.full_name || 'Your family member'
+  const rawOwnerName = ownerAuth.data?.user?.user_metadata?.full_name || 'Your family member'
+  // MED-2 fix: sanitise ownerName before email subject interpolation
+  const ownerName = rawOwnerName.replace(/[\r\n]/g, ' ').slice(0, 100)
 
   for (const ben of bens ?? []) {
     const newTier    = ben.id_verified_at ? 2 : 1
@@ -272,7 +282,7 @@ async function grantVaultAccess(request: any, supabase: any) {
     await sendEmail({
       to:      ben.email,
       subject: `Access to ${ownerName}'s Digital Relative vault has been granted`,
-      html:    deadMansSwitchEmail(ben.name || 'there', ownerName, accessUrl),
+      html:    accessGrantedEmail(ben.name || 'there', rawOwnerName || ownerName, accessUrl),
     })
   }
 

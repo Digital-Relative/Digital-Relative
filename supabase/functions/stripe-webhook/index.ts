@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 
 // Stripe webhook handler — no Stripe npm package (incompatible with Deno edge runtime)
@@ -98,7 +98,14 @@ serve(async (req) => {
   try {
     await handleEvent(event, supabase)
     await supabase.from('stripe_events').insert({
-      id: event.id, type: event.type, payload: event.data,
+      id:      event.id,
+      type:    event.type,
+      // Store minimal metadata only (PII minimisation) — not full Stripe payload
+      payload: {
+        customer:     event.data?.object?.customer ?? null,
+        subscription: event.data?.object?.id ?? null,
+        status:       event.data?.object?.status ?? null,
+      },
     })
   } catch (err) {
     console.error('Webhook handler error:', err.message)

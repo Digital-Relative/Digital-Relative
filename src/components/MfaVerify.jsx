@@ -33,7 +33,7 @@ export default function MfaVerify({ onVerified, onSignOut }) {
       if (error) throw error
       onVerified()
     } catch (err) {
-      toast.error('Incorrect code — check your app')
+      toast.error('Incorrect code - check your app')
       setCode('')
     } finally {
       setLoading(false)
@@ -68,7 +68,7 @@ export default function MfaVerify({ onVerified, onSignOut }) {
       setCodeSent(true)
       toast.success('Code sent to your email')
     } catch (err) {
-      toast.error('Could not send code — please try again')
+      toast.error('Could not send code - please try again')
     } finally {
       setSending(false)
     }

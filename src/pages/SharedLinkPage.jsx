@@ -63,7 +63,7 @@ export default function SharedLinkPage() {
       if (data.requiresPin) { setStage('pin_required'); setLoading(false); return }
       if (data.error) {
         if (data.error.includes('expired') || data.error.includes('viewed')) setStage('expired')
-        else if (data.error === 'Incorrect PIN') { setPinError('Incorrect PIN — try again'); setLoading(false); return }
+        else if (data.error === 'Incorrect PIN') { setPinError('Incorrect PIN - try again'); setLoading(false); return }
         else setStage('error')
         setLoading(false)
         return
@@ -194,7 +194,7 @@ export default function SharedLinkPage() {
             {metadata?.contentLabel || content?.label}
           </h1>
           <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
-            {metadata?.oneTime ? '⚠️ One-time view — this link is now destroyed' : `Expires: ${new Date(metadata?.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`}
+            {metadata?.oneTime ? '⚠️ One-time view - this link is now destroyed' : `Expires: ${new Date(metadata?.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`}
           </div>
         </div>
 
@@ -243,7 +243,7 @@ export default function SharedLinkPage() {
 
         {/* Security notice */}
         <div className="fade-up-3" style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 24 }}>
-          🔐 This content was end-to-end encrypted. The decryption key was in the link — Digital Relative cannot read this data.
+          🔐 This content was end-to-end encrypted. The decryption key was in the link - Digital Relative cannot read this data.
         </div>
 
         {/* Signup prompt */}

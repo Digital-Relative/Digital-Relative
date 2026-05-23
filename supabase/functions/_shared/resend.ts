@@ -18,33 +18,40 @@ export interface SendEmailParams {
 
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   if (!RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — email not sent:', params.subject)
+    console.warn('RESEND_API_KEY not set - email not sent:', params.subject)
     return false
   }
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        from:     FROM_EMAIL,
-        to:       Array.isArray(params.to) ? params.to : [params.to],
-        subject:  params.subject,
-        html:     params.html,
-        reply_to: params.replyTo || 'support@digitalrelative.co.uk',
-      }),
-    })
+    const ctrl  = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 15_000)
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type':  'application/json',
+        },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          from:     FROM_EMAIL,
+          to:       Array.isArray(params.to) ? params.to : [params.to],
+          subject:  params.subject,
+          html:     params.html,
+          reply_to: params.replyTo || 'support@digitalrelative.co.uk',
+        }),
+      })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      console.error('Resend error:', err)
-      return false
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('Resend error:', err)
+        return false
+      }
+
+      return true
+    } finally {
+      clearTimeout(timer)
     }
-
-    return true
   } catch (err) {
     console.error('Email send failed:', err.message)
     return false

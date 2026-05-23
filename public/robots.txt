@@ -1,9 +1,11 @@
 User-agent: *
-# The app itself is authenticated — no useful content to index
+# The app itself is authenticated - no useful content to index
 Disallow: /
-# Allow public pages
+
+# Allow public legal and security pages
 Allow: /privacy.html
 Allow: /terms.html
+Allow: /security-policy.html
 Allow: /.well-known/
 
-# No sitemap — this is an authenticated app, not a content site
+Sitemap: https://digitalrelative.co.uk/sitemap.xml

@@ -1,10 +1,21 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGINS = new Set([
+  'https://digitalrelative.co.uk',
+  'https://www.digitalrelative.co.uk',
+  'https://legatum-chi.vercel.app',
+  'https://digital-relative.vercel.app',
+])
+
+function getCorsHeaders(origin: string): Record<string, string> {
+  if (!ALLOWED_ORIGINS.has(origin)) return {}
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
 }
 
 const MAX_PIN_ATTEMPTS = 5
@@ -20,6 +31,8 @@ function constantTimeEqual(a: string, b: string): boolean {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin') || ''
+  const corsHeaders = getCorsHeaders(origin)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
@@ -87,17 +100,25 @@ serve(async (req) => {
         })
       }
 
-      // FIX EF-NEW-7: Compute hash and compare with constant-time comparison
-      const encoder = new TextEncoder()
-      const data    = encoder.encode(pin + link.token)
-      const hashBuf = await crypto.subtle.digest('SHA-256', data)
-      const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+      // Use PBKDF2 not SHA-256 — short PINs have low entropy, offline crack feasible with SHA-256
+      const enc    = new TextEncoder()
+      const keyMat = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits'])
+      const bits   = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: enc.encode(link.token), iterations: 100_000, hash: 'SHA-256' },
+        keyMat, 256
+      )
+      const hashHex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('')
 
       if (!constantTimeEqual(hashHex, link.pin_hash)) {
-        // Increment failed attempt counter atomically
-        await supabase.from('shared_links')
+        // MED-2 fix: increment atomically using optimistic lock (same pattern as view_count)
+        // Only update if pin_attempts hasn't changed since we read it
+        const { count: updated } = await supabase.from('shared_links')
           .update({ pin_attempts: (failedAttempts + 1) })
           .eq('id', link.id)
+          .eq('pin_attempts', failedAttempts)  // optimistic lock
+          .select('*', { count: 'exact', head: true })
+        // If count === 0, a concurrent request already incremented — that's fine,
+        // the attempt was still counted by the other request
 
         const remaining = MAX_PIN_ATTEMPTS - failedAttempts - 1
         return new Response(JSON.stringify({

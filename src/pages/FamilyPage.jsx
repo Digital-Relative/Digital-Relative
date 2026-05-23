@@ -89,7 +89,7 @@ function DependantModal({ dependant, type, onClose, onSave }) {
             </div>
           ))}
 
-          {/* Access control — only for children and dependants */}
+          {/* Access control - only for children and dependants */}
           {(type?.id === 'child' || type?.id === 'dependant') && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
               <label className="label">Who can see this information</label>
@@ -140,7 +140,7 @@ function SharedInfoModal({ info, onClose, onSave }) {
           Shared family information
         </h2>
         <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 20, lineHeight: 1.6 }}>
-          This information is shared across all family profiles — GP, dentist, emergency contacts.
+          This information is shared across all family profiles - GP, dentist, emergency contacts.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {SHARED_FAMILY_FIELDS.map(f => (
@@ -213,7 +213,7 @@ function DependantCard({ dep, typeConfig, onEdit, onDelete }) {
             ))}
           </div>
 
-          {/* Private fields — shown masked */}
+          {/* Private fields - shown masked */}
           {privateFields.some(f => data[f.id]) && (
             <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: 'var(--gold)', marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>🔐 Encrypted fields</div>
@@ -343,7 +343,7 @@ export default function FamilyPage() {
         <div className="fade-up-2 card-static" style={{ marginBottom: 22, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontWeight: 500, marginBottom: 4 }}>Add shared family information</div>
-            <div style={{ fontSize: 13, color: 'var(--text-sub)' }}>GP surgery, dentist, emergency contacts — shown with all family profiles</div>
+            <div style={{ fontSize: 13, color: 'var(--text-sub)' }}>GP surgery, dentist, emergency contacts - shown with all family profiles</div>
           </div>
           <button className="btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setModal({ type: 'shared' })}>
             Add now

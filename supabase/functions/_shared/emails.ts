@@ -78,10 +78,10 @@ function callout(text: string, type: 'info' | 'warning' = 'info'): string {
 export function checkinReminderEmail(userName: string, overdueDays: number, checkinUrl: string): string {
   return layout(`
     ${heading("It's time to check in")}
-    ${para(`Hi ${userName || 'there'},`)}
+    ${para(`Hi ${he(userName || 'there')},`)}
     ${para(`Your Digital Relative check-in is <strong style="color:#e8a44c;">${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue</strong>. Checking in confirms you're well and keeps your vault locked for your beneficiaries.`)}
     ${button("Check in now →", checkinUrl)}
-    ${callout("If you don't check in, your beneficiaries will be notified after your chosen check-in period. This is how the service is designed to work — your family's security depends on regular check-ins.", 'info')}
+    ${callout("If you don't check in, your beneficiaries will be notified after your chosen check-in period. This is how the service is designed to work - your family's security depends on regular check-ins.", 'info')}
     ${para(`If you no longer need Digital Relative, you can cancel your account in <a href="${checkinUrl}" style="color:${GOLD};">Settings</a>.`)}
   `)
 }
@@ -89,8 +89,8 @@ export function checkinReminderEmail(userName: string, overdueDays: number, chec
 export function deadMansSwitchEmail(beneficiaryName: string, ownerName: string, accessUrl: string): string {
   return layout(`
     ${heading("You've been granted vault access")}
-    ${para(`Dear ${beneficiaryName || 'there'},`)}
-    ${para(`We're sorry for your loss. <strong style="color:#f0ece2;">${ownerName || 'Your family member'}</strong> has set up Digital Relative to ensure their important information reaches you when needed.`)}
+    ${para(`Dear ${he(beneficiaryName || 'there')},`)}
+    ${para(`We're sorry for your loss. <strong style="color:#f0ece2;">${he(ownerName || 'Your family member')}</strong> has set up Digital Relative to ensure their important information reaches you when needed.`)}
     ${para(`They have nominated you as a beneficiary of their vault. You can now access the information and guidance they've prepared for you.`)}
     ${callout("You will need to verify your identity before accessing any sensitive information. This protects you and the estate.", 'info')}
     ${button("Access vault →", accessUrl)}
@@ -99,14 +99,25 @@ export function deadMansSwitchEmail(beneficiaryName: string, ownerName: string, 
   `)
 }
 
+export function accessGrantedEmail(beneficiaryName: string, ownerName: string, accessUrl: string): string {
+  return layout(`
+    <h1 style="font-family:Georgia,serif;font-size:24px;color:#f0ece2;margin:0 0 14px;font-weight:400;">Vault access granted</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">Dear ${he(beneficiaryName)},</p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">The 48-hour review period for <strong style="color:#f0ece2;">${he(ownerName)}</strong>'s Digital Relative vault has passed. Access has now been granted.</p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">You can now view the vault using the link below. Your access level has been set based on the configuration left by ${he(ownerName)}.</p>
+    <div style="text-align:center;margin:24px 0;"><a href="${accessUrl}" style="display:inline-block;background:${GOLD};color:#0d1b2a;text-decoration:none;font-size:14px;font-weight:600;padding:14px 36px;border-radius:8px;">Access vault →</a></div>
+    <p style="font-size:13px;color:${MUTED};line-height:1.7;">If you did not request this access or believe this was sent in error, contact us at support@digitalrelative.co.uk</p>
+  `)
+}
+
 export function beneficiaryInviteEmail(beneficiaryName: string, ownerName: string, confirmUrl: string): string {
   return layout(`
     ${heading("You've been added as a beneficiary")}
-    ${para(`Hi ${beneficiaryName || 'there'},`)}
-    ${para(`<strong style="color:#f0ece2;">${ownerName || 'Someone'}</strong> has added you as a beneficiary on Digital Relative — a secure vault for important passwords, documents, and instructions for family.`)}
+    ${para(`Hi ${he(beneficiaryName || 'there')},`)}
+    ${para(`<strong style="color:#f0ece2;">${he(ownerName || 'Someone')}</strong> has added you as a beneficiary on Digital Relative - a secure vault for important passwords, documents, and instructions for family.`)}
     ${para(`This means if something happens to them, you'll be able to access vital information they've stored for you. Please accept this nomination to confirm.`)}
     ${button("Accept nomination →", confirmUrl)}
-    ${callout("You don't need an account to accept — just click the button above. If you'd like to store your own information, you can create a free account after accepting.", 'info')}
+    ${callout("You don't need an account to accept - just click the button above. If you'd like to store your own information, you can create a free account after accepting.", 'info')}
     ${para(`If you don't recognise this request, you can safely ignore this email. No action is required.`)}
   `)
 }
@@ -114,9 +125,9 @@ export function beneficiaryInviteEmail(beneficiaryName: string, ownerName: strin
 export function partnerInviteEmail(partnerName: string, requesterName: string, inviteUrl: string): string {
   return layout(`
     ${heading("Couples vault invitation")}
-    ${para(`Hi ${partnerName || 'there'},`)}
-    ${para(`<strong style="color:#f0ece2;">${requesterName || 'Your partner'}</strong> has invited you to link your Digital Relative vaults as a couple.`)}
-    ${para(`Once linked, you'll each keep your own private vault, and get a shared space for joint accounts. You can also choose to share your private vault with your partner — this is optional and can be changed at any time.`)}
+    ${para(`Hi ${he(partnerName || 'there')},`)}
+    ${para(`<strong style="color:#f0ece2;">${he(requesterName || 'Your partner')}</strong> has invited you to link your Digital Relative vaults as a couple.`)}
+    ${para(`Once linked, you'll each keep your own private vault, and get a shared space for joint accounts. You can also choose to share your private vault with your partner - this is optional and can be changed at any time.`)}
     ${button("Create your account →", inviteUrl)}
     ${para(`If you already have a Digital Relative account, sign in and accept the invitation from your dashboard.`)}
     ${callout("If you currently pay for a Single plan, you'll receive a refund for any unused subscription time when you join the Couples vault.", 'info')}
@@ -126,7 +137,7 @@ export function partnerInviteEmail(partnerName: string, requesterName: string, i
 
 export function expiryReminderEmail(userName: string, entries: Array<{title: string, expiryDate: string, daysLeft: number}>, vaultUrl: string): string {
   const entryRows = entries.map(e =>
-    `<tr><td style="padding:10px 14px;color:${TEXT};font-size:13px;border-bottom:1px solid rgba(255,255,255,0.06);">${e.title}</td>
+    `<tr><td style="padding:10px 14px;color:${TEXT};font-size:13px;border-bottom:1px solid rgba(255,255,255,0.06);">${he(e.title)}</td>
      <td style="padding:10px 14px;color:${e.daysLeft < 0 ? '#e05252' : '#e8a44c'};font-size:13px;font-weight:500;border-bottom:1px solid rgba(255,255,255,0.06);">
        ${e.daysLeft < 0 ? `Expired ${Math.abs(e.daysLeft)} days ago` : `Expires in ${e.daysLeft} days`}
      </td></tr>`
@@ -134,7 +145,7 @@ export function expiryReminderEmail(userName: string, entries: Array<{title: str
 
   return layout(`
     ${heading("Vault entries need attention")}
-    ${para(`Hi ${userName || 'there'},`)}
+    ${para(`Hi ${he(userName || 'there')},`)}
     ${para(`The following items in your Digital Relative vault are expired or expiring soon:`)}
     <table style="width:100%;border-collapse:collapse;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:16px 0;">
       <thead><tr>
@@ -150,11 +161,10 @@ export function expiryReminderEmail(userName: string, entries: Array<{title: str
 
 export function passwordResetWarningEmail(userName: string): string {
   return layout(`
-    ${heading("⚠️ Password change — important notice")}
-    ${para(`Hi ${userName || 'there'},`)}
-    ${callout("<strong>Important:</strong> Your Digital Relative vault is encrypted using a key derived from your login password. Changing your password will change your encryption key.", 'warning')}
-    ${para(`Before you click the reset link, please sign in to your vault and <strong style="color:#f0ece2;">export your data</strong> from Settings → Export all my data. This gives you a backup of your vault contents.`)}
-    ${para(`After resetting your password, you'll be asked to set a new vault PIN which will re-encrypt your data. Your previous vault contents will be recovered from your backup if needed.`)}
-    ${para(`If you did not request a password reset, please contact us immediately at <a href="mailto:security@digitalrelative.co.uk" style="color:${GOLD};">security@digitalrelative.co.uk</a>.`)}
+    ${heading("Your login password has been changed")}
+    ${para(`Hi ${he(userName || 'there')},`)}
+    ${para("Your Digital Relative login password has been successfully changed.")}
+    ${callout("<strong>Your vault is unaffected.</strong> Your vault data is encrypted using your vault PIN, which is separate from your login password. You do not need to take any action - your vault will unlock normally when you enter your PIN.")}
+    ${para("If you did not request this password change, please contact us immediately at <a href=\"mailto:security@digitalrelative.co.uk\" style=\"color:${GOLD}\">security@digitalrelative.co.uk</a>.")}
   `)
 }

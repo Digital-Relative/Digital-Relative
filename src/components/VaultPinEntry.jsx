@@ -18,14 +18,14 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
     e.preventDefault()
     if (pin.length < 6) { toast.error('Enter your vault PIN'); return }
     if (attempts >= MAX_ATTEMPTS) {
-      toast.error('Too many incorrect attempts — please sign out and sign back in')
+      toast.error('Too many incorrect attempts - please sign out and sign back in')
       return
     }
 
     setLoading(true)
     try {
       const salt = profile?.encryption_salt
-      if (!salt) throw new Error('Vault configuration error — please contact support')
+      if (!salt) throw new Error('Vault configuration error - please contact support')
 
       // Derive the key from the entered PIN
       const key = await deriveKey(pin, user.id, salt)
@@ -55,7 +55,7 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
       setAttempts(newAttempts)
       setPin('')
       if (newAttempts >= MAX_ATTEMPTS) {
-        toast.error('Too many incorrect attempts — sign out and try again')
+        toast.error('Too many incorrect attempts - sign out and try again')
       } else {
         toast.error(`Incorrect PIN · ${MAX_ATTEMPTS - newAttempts} attempt${MAX_ATTEMPTS - newAttempts !== 1 ? 's' : ''} remaining`)
       }
@@ -124,7 +124,7 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
         </button>
 
         <p style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 16, lineHeight: 1.5 }}>
-          Forgot your PIN? Unfortunately we cannot recover it — your data is encrypted with it. You would need to reset your vault.
+          Forgot your PIN? Unfortunately we cannot recover it - your data is encrypted with it. You would need to reset your vault.
         </p>
       </div>
     </div>

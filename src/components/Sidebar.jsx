@@ -1,20 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../lib/i18n'
 import { PLANS } from '../lib/stripe'
 import NotificationBell from './NotificationBell'
 
 const NAV = [
   { id: 'dashboard',     label: 'Dashboard',       icon: '◈' },
-  { id: 'vault',         label: 'My Vault',         icon: '⬡' },
-  { id: 'documents',     label: 'Documents',        icon: '📁' },
-  { id: 'beneficiaries', label: 'Beneficiaries',   icon: '◉' },
+  { id: 'vault',         label: t('nav_vault'),         icon: '⬡' },
+  { id: 'documents',     label: t('nav_documents'),        icon: '📁' },
+  { id: 'beneficiaries', label: t('nav_beneficiaries'),   icon: '◉' },
   { id: 'couples',       label: 'Couples vault',    icon: '💑', couplesOnly: true },
-  { id: 'family',        label: 'Family',           icon: '👨‍👩‍👧‍👦' },
-  { id: 'checkin',       label: 'Check-in',         icon: '◎' },
+  { id: 'family',        label: t('nav_family'),           icon: '👨‍👩‍👧‍👦' },
+  { id: 'checkin',       label: t('nav_checkin'),         icon: '◎' },
   { id: 'afteriamgone',  label: 'After I\'m Gone',  icon: '💛' },
-  { id: 'sharedlinks',   label: 'Share links',      icon: '🔗' },
-  { id: 'plan',          label: 'My Plan',          icon: '◇' },
-  { id: 'settings',      label: 'Settings',         icon: '⚙' },
+  { id: 'sharedlinks',   label: t('nav_shared'),      icon: '🔗' },
+  { id: 'plan',          label: t('nav_plan'),          icon: '◇' },
+  { id: 'blog',          label: t('nav_blog'),        icon: '📖', alwaysShow: true },
+  { id: 'about',         label: t('nav_about'),            icon: 'ℹ',  alwaysShow: true },
+  { id: 'privacy',       label: t('nav_privacy'),          icon: '🔏', alwaysShow: true },
+  { id: 'terms',         label: t('nav_terms'),            icon: '📄', alwaysShow: true },
+  { id: 'settings',      label: t('nav_settings'),         icon: '⚙' },
 ]
 
 // Bottom nav shown on mobile — show the most important items
@@ -41,6 +46,7 @@ function TreeMark({ size = 32 }) {
 
 export default function Sidebar({ active, onNav }) {
   const { profile, signOut } = useAuth()
+  const t = useTranslation(profile?.preferred_language || 'en')
   const planId    = profile?.plan || 'free'
   const plan      = PLANS[planId] || PLANS.free
   const isCouples = planId === 'couples'
@@ -272,10 +278,16 @@ export default function Sidebar({ active, onNav }) {
           </div>
         </div>
         <NotificationBell onNav={onNav} />
-        <button onClick={signOut} title="Sign out" style={{
+        <button onClick={signOut} style={{
           background: 'transparent', border: 'none', color: 'var(--text-sub)',
-          fontSize: 16, cursor: 'pointer', padding: '2px 4px', lineHeight: 1,
-        }}>⎋</button>
+          fontSize: 12, cursor: 'pointer', padding: '4px 8px', lineHeight: 1,
+          fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 5,
+          borderRadius: 6, transition: 'color 0.15s',
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-sub)'}>
+          ⎋ Log out
+        </button>
       </div>
     </aside>
   )

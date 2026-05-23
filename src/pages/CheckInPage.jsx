@@ -19,7 +19,7 @@ export default function CheckInPage() {
     setChecking(true)
     try {
       await updateProfile({ last_checkin: new Date().toISOString(), checkin_frequency_days: freq })
-      toast.success('Check-in recorded — vault remains locked for beneficiaries')
+      toast.success('Check-in recorded - vault remains locked for beneficiaries')
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -65,7 +65,7 @@ export default function CheckInPage() {
         </p>
         <button className="btn-primary" onClick={handleCheckIn} disabled={checking}
           style={{ padding: '14px 44px', fontSize: 15 }}>
-          {checking ? <span className="spinner" style={{ width: 16, height: 16 }} /> : "I'm well — check in now"}
+          {checking ? <span className="spinner" style={{ width: 16, height: 16 }} /> : "I'm well - check in now"}
         </button>
       </div>
 

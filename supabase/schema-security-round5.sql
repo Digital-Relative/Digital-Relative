@@ -15,8 +15,8 @@ create policy "Partner can accept or decline invite" on public.partner_links
     auth.uid() = partner_id
     and status in ('accepted', 'declined')
     -- Cannot change requester_id, partner_id, couples_payer_id, invite_code
-    and requester_id = requester_id
-    and partner_id   = partner_id
+    -- Field immutability enforced by protect_partner_link_fields trigger
+
   );
 
 -- Either party can update their own sharing flag only
@@ -26,8 +26,8 @@ create policy "Requester can update own sharing flag" on public.partner_links
   with check (
     auth.uid() = requester_id
     and status = 'accepted'
-    and requester_id = requester_id
-    and partner_id   = partner_id
+    -- Field immutability enforced by protect_partner_link_fields trigger
+
     -- couples_payer_id, invite_code, separated_at, billing_note — NOT changeable by client
   );
 
@@ -37,8 +37,8 @@ create policy "Partner can update own sharing flag" on public.partner_links
   with check (
     auth.uid() = partner_id
     and status = 'accepted'
-    and requester_id = requester_id
-    and partner_id   = partner_id
+    -- Field immutability enforced by protect_partner_link_fields trigger
+
   );
 
 -- ── FIX DB-NEW-2 [HIGH]: couples_payer_id only settable by service role ──

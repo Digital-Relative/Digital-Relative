@@ -25,8 +25,13 @@ create table if not exists public.profiles (
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
-  insert into public.profiles (id, full_name, gdpr_consent_at)
-  values (new.id, new.raw_user_meta_data->>'full_name', now());
+  insert into public.profiles (id, full_name, gdpr_consent_at, marketing_opt_in)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    now(),
+    coalesce((new.raw_user_meta_data->>'marketing_opt_in')::boolean, false)
+  );
   return new;
 end;
 $$;
@@ -84,7 +89,7 @@ create table if not exists public.beneficiaries (
   relation     text,
   email        text not null,
   access_level text not null default 'Full access' check (access_level in ('Full access','Read only','Specific categories only')),
-  status       text not null default 'pending' check (status in ('pending','confirmed','revoked')),
+  status       text not null default 'invited' check (status in ('invited','email_confirmed','id_verified','access_granted','declined','revoked')),
   invite_token text unique default encode(gen_random_bytes(32), 'hex'),
   confirmed_at timestamptz,
   created_at   timestamptz not null default now()
@@ -99,7 +104,7 @@ create policy "Users can manage own beneficiaries" on public.beneficiaries
 -- Beneficiaries can confirm via token (no auth needed)
 create policy "Beneficiaries can confirm via token" on public.beneficiaries
   for update using (invite_token is not null)
-  with check (status = 'confirmed');
+  with check (status = 'email_confirmed');
 
 
 -- ── Checkin log ────────────────────────────────────────────

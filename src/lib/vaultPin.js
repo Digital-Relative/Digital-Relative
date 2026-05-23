@@ -14,7 +14,7 @@ export function validatePin(pin) {
   // Reject obvious weak PINs
   if (/^(\d)\1+$/.test(digits)) return 'PIN cannot be all the same digit'
   if (['123456','654321','012345','111111','000000','123123'].includes(digits))
-    return 'PIN is too common — please choose a less predictable one'
+    return 'PIN is too common - please choose a less predictable one'
   return null
 }
 
