@@ -91,9 +91,22 @@ if (-not $changedFunctions) {
     }
 }
 
+# Step 6: Create source zip (for audit / backup)
+Write-Host "Step 6/6: Creating source zip..." -ForegroundColor Yellow
+$zipPath = Join-Path $env:USERPROFILE "Desktop\legatum-$(Get-Date -Format 'yyyy-MM-dd').zip"
+$excludes = @('.git', 'node_modules', 'dist')
+$items = Get-ChildItem -Path . | Where-Object { $_.Name -notin $excludes }
+try {
+    Compress-Archive -Path $items.FullName -DestinationPath $zipPath -Force
+    Write-Host "  Zip saved to: $zipPath" -ForegroundColor Green
+} catch {
+    Write-Host "  Zip skipped (non-critical): $_" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  All done!" -ForegroundColor Green
 Write-Host "  Site: https://digitalrelative.co.uk" -ForegroundColor Cyan
+Write-Host "  Zip:  $zipPath" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
