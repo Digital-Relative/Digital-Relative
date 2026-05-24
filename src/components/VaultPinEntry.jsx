@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { RedeemRecoveryCode } from './VaultRecoveryCodes'
 import { useAuth } from '../context/AuthContext'
-import { deriveKey, setSessionKey, getSessionKey, decrypt } from '../lib/crypto'
-import { formatPin } from '../lib/vaultPin'
+import { deriveKey, setSessionKey, getSessionKey, decrypt, saveTrustedPin, loadTrustedPin, hasTrustedDevice, clearTrustedDevice } from '../lib/crypto'
 import { supabase } from '../lib/supabase'
+import { formatPin } from '../lib/vaultPin'
 import toast from 'react-hot-toast'
 
 // Shown when user is logged in but vault PIN has not been entered this session
@@ -11,8 +12,52 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
   const { user, profile } = useAuth()
   const [pin, setPin]       = useState('')
   const [loading, setLoading] = useState(false)
-  const [attempts, setAttempts] = useState(0)
+  const [attempts, setAttempts]   = useState(0)
+  const [trustDevice, setTrustDevice] = useState(false)
+  const [autoUnlocking, setAutoUnlocking] = useState(false)
+  const [showRecovery, setShowRecovery] = useState(false)
   const MAX_ATTEMPTS = 5
+
+  // Auto-unlock if this device was previously trusted
+  useEffect(() => {
+    async function tryAutoUnlock() {
+      if (!user?.id || !profile?.encryption_salt) return
+      if (!hasTrustedDevice(user.id)) return
+      setAutoUnlocking(true)
+      try {
+        const savedPin = await loadTrustedPin(user.id)
+        if (!savedPin) { setAutoUnlocking(false); return }
+        const salt = profile.encryption_salt
+        const key  = await deriveKey(savedPin, user.id, salt)
+        if (profile?.key_verification) {
+          const prevKey = getSessionKey()
+          setSessionKey(key)
+          try {
+            const result = await decrypt(profile.key_verification)
+            if (result !== 'dr_key_ok') {
+              setSessionKey(prevKey)
+              // Saved PIN no longer works (PIN was changed) - clear trust
+              clearTrustedDevice(user.id)
+              setAutoUnlocking(false)
+              return
+            }
+          } catch {
+            setSessionKey(prevKey)
+            clearTrustedDevice(user.id)
+            setAutoUnlocking(false)
+            return
+          }
+        }
+        setSessionKey(key)
+        // Reset absolute session timer on auto-unlock
+        sessionStorage.setItem('dr_session_start', String(Date.now()))
+        onUnlocked()
+      } catch {
+        setAutoUnlocking(false)
+      }
+    }
+    tryAutoUnlock()
+  }, [user?.id, profile?.encryption_salt])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -47,7 +92,38 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
         }
       }
 
+      // Check if this is the duress PIN (separate key verification)
+      let isDuress = false
+      if (profile?.duress_key_verification && profile?.duress_pin_set) {
+        try {
+          const dKey = await deriveKey(unenrollCode || pin, user.id + '_duress', profile.encryption_salt)
+          const prevKey = getSessionKey()
+          setSessionKey(dKey)
+          try {
+            const dResult = await decrypt(profile.duress_key_verification)
+            isDuress = dResult === 'dr_duress_ok'
+          } catch { /* not duress */ }
+          if (!isDuress) setSessionKey(prevKey)
+        } catch { /* not duress */ }
+      }
+
+      if (isDuress) {
+        // Silently alert owner and admin, then show decoy vault
+        supabase.functions.invoke('duress-alert').catch(() => {})
+        // E-1 fix: set the DURESS key (not real key) so decoy entries decrypt correctly
+        // The duress key only decrypts decoy_entries, not real vault_entries
+        const dKeyForSession = await deriveKey(pin, user.id + '_duress', profile.encryption_salt)
+        setSessionKey(dKeyForSession)
+        sessionStorage.setItem('dr_duress_active', '1')
+        toast.success('Vault unlocked')
+        onUnlocked()
+        return
+      }
+
       setSessionKey(key)
+      if (trustDevice) {
+        await saveTrustedPin(pin, user.id)
+      }
       toast.success('Vault unlocked')
       onUnlocked()
     } catch (err) {
@@ -67,6 +143,40 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
   const isOAuth = user?.app_metadata?.provider === 'google' ||
                   user?.app_metadata?.provider === 'apple'
   const provider = user?.app_metadata?.provider
+
+  if (showRecovery) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(5,12,20,0.97)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          background: '#0d1e30', border: '1px solid rgba(201,168,76,0.3)',
+          borderRadius: 16, padding: '40px 36px', width: 380, maxWidth: '92vw',
+        }}>
+          <RedeemRecoveryCode
+            onUnlocked={onUnlocked}
+            onCancel={() => setShowRecovery(false)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (autoUnlocking) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(5,12,20,0.97)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 16,
+      }}>
+        <div className="spinner" style={{ width: 32, height: 32 }} />
+        <div style={{ color: 'var(--text-sub)', fontSize: 14 }}>Unlocking vault...</div>
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -108,6 +218,16 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
               {MAX_ATTEMPTS - attempts} attempt{MAX_ATTEMPTS - attempts !== 1 ? 's' : ''} remaining
             </div>
           )}
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 8, justifyContent: 'center' }}>
+            <input
+              type="checkbox"
+              checked={trustDevice}
+              onChange={e => setTrustDevice(e.target.checked)}
+              style={{ accentColor: 'var(--gold)', width: 16, height: 16 }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--text-sub)' }}>Trust this device</span>
+          </label>
 
           <button className="btn-primary" type="submit"
             disabled={loading || pin.length < 6 || attempts >= MAX_ATTEMPTS}

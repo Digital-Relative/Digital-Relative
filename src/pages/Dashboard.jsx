@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import VaultWizard from '../components/VaultWizard'
 import { useAuth } from '../context/AuthContext'
 import { useVault } from '../hooks/useVault'
 import { useBeneficiaries } from '../hooks/useBeneficiaries'
@@ -9,18 +10,86 @@ import toast from 'react-hot-toast'
 
 // Vault completeness score
 // L-1 fix: only count categories that have at least one entry with a real title
-function completenessScore(entries) {
+function completenessScore(entries, beneficiaries, profile) {
   const ideal = ['banking','investments','insurance','government','property','legal','digital','medical']
-  // A category is "covered" only if it has at least one entry with a non-empty title
+
+  // Category coverage - only count entries with a real title
   const coveredCategories = new Set(
-    entries
-      .filter(e => e.title && e.title.trim().length > 0)
-      .map(e => e.category)
+    entries.filter(e => e.title && e.title.trim().length > 0).map(e => e.category)
   )
   const covered = ideal.filter(c => coveredCategories.has(c)).length
-  const pct = Math.round((covered / ideal.length) * 100)
   const missing = ideal.filter(c => !coveredCategories.has(c))
-  return { pct, covered, total: ideal.length, missing }
+
+  // Actionable flags
+  const flags = []
+  const now = Date.now()
+  const oneYear = 365 * 24 * 60 * 60 * 1000
+
+  // Entries with no username (incomplete record) - skip secure_notes
+  const incompleteEntries = entries.filter(e =>
+    e.title && e.category !== 'secure_note' && !e.username
+  )
+  if (incompleteEntries.length > 0) {
+    flags.push({
+      id:     'incomplete_entries',
+      icon:   '📋',
+      label:  `${incompleteEntries.length} ${incompleteEntries.length === 1 ? 'entry has' : 'entries have'} no username or account number`,
+      action: 'vault',
+      sev:    'low',
+    })
+  }
+
+  // Entries not updated in over a year
+  const staleEntries = entries.filter(e =>
+    e.updated_at && (now - new Date(e.updated_at).getTime()) > oneYear && e.category !== 'secure_note'
+  )
+  if (staleEntries.length > 0) {
+    flags.push({
+      id:     'stale_entries',
+      icon:   '🕐',
+      label:  `${staleEntries.length} ${staleEntries.length === 1 ? 'entry has' : 'entries have'} not been updated in over a year`,
+      action: 'vault',
+      sev:    'low',
+    })
+  }
+
+  // Unconfirmed beneficiary invites
+  const unconfirmed = (beneficiaries || []).filter(b => b.status === 'invited')
+  if (unconfirmed.length > 0) {
+    flags.push({
+      id:     'unconfirmed_bens',
+      icon:   '👤',
+      label:  `${unconfirmed.length} ${unconfirmed.length === 1 ? 'beneficiary has' : 'beneficiaries have'} not yet confirmed their invite`,
+      action: 'beneficiaries',
+      sev:    'medium',
+    })
+  }
+
+  // No executor designated
+  const hasExecutor = (beneficiaries || []).some(b => b.is_executor)
+  if ((beneficiaries || []).length > 0 && !hasExecutor) {
+    flags.push({
+      id:     'no_executor',
+      icon:   '⭐',
+      label:  'No executor designated - someone needs to be able to submit a death certificate',
+      action: 'beneficiaries',
+      sev:    'medium',
+    })
+  }
+
+  // No beneficiaries at all
+  if ((beneficiaries || []).length === 0) {
+    flags.push({
+      id:     'no_beneficiaries',
+      icon:   '👥',
+      label:  'No beneficiaries added - nobody can access your vault',
+      action: 'beneficiaries',
+      sev:    'high',
+    })
+  }
+
+  const pct = Math.round((covered / ideal.length) * 100)
+  return { pct, covered, total: ideal.length, missing, flags }
 }
 
 export default function Dashboard({ onNav }) {
@@ -30,6 +99,7 @@ export default function Dashboard({ onNav }) {
 
   const hasExecutor    = beneficiaries?.some(b => b.is_executor) ?? false
   const hasCheckin     = !!(profile?.last_checkin)
+  const [showWizard, setShowWizard] = useState(false)
   const [hasAfterIAmGone, setHasAfterIAmGone] = useState(false)
   const [checkingIn, setCheckingIn] = useState(false)
 
@@ -53,6 +123,7 @@ export default function Dashboard({ onNav }) {
         checkin_frequency_days: profile?.checkin_frequency_days || 30,
       })
       toast.success('Check-in recorded')
+      supabase.from('audit_log').insert({ action: 'checked_in' }).catch(() => {})
     } catch (e) { toast.error(e.message) }
     finally { setCheckingIn(false) }
   }
@@ -72,7 +143,7 @@ export default function Dashboard({ onNav }) {
   const isOverdue      = daysUntil === 0
 
   // Vault completeness (feature 1)
-  const completeness = completenessScore(entries)
+  const completeness = completenessScore(entries, beneficiaries, profile)
 
   // Beneficiaries who haven't created account yet (feature 5 dashboard widget)
   const notCreated = beneficiaries.filter(b => b.status === 'invited')
@@ -139,7 +210,10 @@ export default function Dashboard({ onNav }) {
         <div className="fade-up-3 card-static" style={{ marginBottom: 22 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h3 style={{ fontFamily: 'var(--serif)', fontSize: 17, color: 'var(--cream)' }}>Vault health</h3>
-            <button className="btn-ghost" onClick={() => onNav('vault')} style={{ fontSize: 12, padding: '5px 12px' }}>Add entries</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn-ghost" onClick={() => setShowWizard(true)} style={{ fontSize: 12, padding: '5px 12px' }}>Complete my vault</button>
+              <button className="btn-ghost" onClick={() => onNav('vault')} style={{ fontSize: 12, padding: '5px 12px' }}>Add manually</button>
+            </div>
           </div>
           <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden', marginBottom: 12 }}>
             <div style={{ height: '100%', width: `${completeness.pct}%`, background: completeness.pct >= 75 ? 'var(--success)' : completeness.pct >= 50 ? 'var(--gold)' : 'var(--danger)', borderRadius: 99, transition: 'width 0.4s' }} />
@@ -164,6 +238,45 @@ export default function Dashboard({ onNav }) {
               </div>
             </div>
           )}
+
+          {/* Actionable health flags */}
+          {completeness.flags && completeness.flags.length > 0 && (
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 4 }}>Things to fix:</div>
+              {completeness.flags.map(flag => (
+                <button key={flag.id} onClick={() => onNav(flag.action)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                  background: flag.sev === 'high' ? 'rgba(224,82,82,0.08)' : flag.sev === 'medium' ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${flag.sev === 'high' ? 'rgba(224,82,82,0.2)' : flag.sev === 'medium' ? 'var(--gold-border)' : 'var(--border)'}`,
+                  borderRadius: 8, padding: '8px 12px', cursor: 'pointer', textAlign: 'left',
+                  fontFamily: 'var(--sans)',
+                }}>
+                  <span style={{ fontSize: 16 }}>{flag.icon}</span>
+                  <span style={{ fontSize: 12, color: 'var(--cream-dim)', flex: 1, lineHeight: 1.4 }}>{flag.label}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>Fix</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Vault completion wizard */}
+      {showWizard && (
+        <div className="modal-overlay" onClick={() => setShowWizard(false)}>
+          <div className="modal" style={{ width: 440, maxWidth: '92vw' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 20 }}>
+              Complete your vault
+            </h2>
+            <VaultWizard
+              onAddEntry={(template) => {
+                // Navigate to vault with pre-fill state
+                sessionStorage.setItem('dr_vault_prefill', JSON.stringify(template))
+                onNav('vault')
+              }}
+              onClose={() => setShowWizard(false)}
+            />
+          </div>
         </div>
       )}
 
@@ -279,7 +392,7 @@ export default function Dashboard({ onNav }) {
               A will ensures your wishes are followed. Farewill offers simple, affordable wills from £90.
             </div>
           </div>
-          <a href="https://farewill.com" target="_blank" rel="noopener noreferrer" style={{
+          <a href="https://farewill.com?utm_source=digitalrelative&utm_medium=dashboard&utm_campaign=will_prompt" target="_blank" rel="noopener noreferrer" style={{
             flexShrink: 0, background: 'var(--gold)', color: '#0d1b2a', border: 'none',
             borderRadius: 'var(--r)', padding: '8px 18px', fontSize: 13, fontWeight: 600,
             cursor: 'pointer', textDecoration: 'none', fontFamily: 'var(--sans)',

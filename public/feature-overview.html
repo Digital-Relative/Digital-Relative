@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature Overview — Digital Relative</title>
+<style>
+  :root {
+    --navy: #0d1b2a;
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.1);
+    --gold-border: rgba(201,168,76,0.3);
+    --cream: #f0ece2;
+    --text: #d0c9bb;
+    --sub: #7a93aa;
+    --border: rgba(255,255,255,0.08);
+    --card: rgba(255,255,255,0.04);
+    --danger: #e05252;
+    --success: #4caf82;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Georgia', serif;
+    background: var(--navy);
+    color: var(--text);
+    line-height: 1.75;
+    padding: 0 0 80px;
+  }
+  /* ── Header ── */
+  .hero {
+    background: linear-gradient(135deg, #0a1520 0%, #0d1b2a 50%, #0f2035 100%);
+    border-bottom: 1px solid var(--gold-border);
+    padding: 56px 48px 48px;
+    text-align: center;
+  }
+  .logo { font-size: 1.3rem; font-weight: 700; color: var(--gold); letter-spacing: 0.02em; margin-bottom: 24px; display: block; }
+  .hero h1 { font-size: 2.4rem; color: var(--cream); margin-bottom: 10px; font-weight: 400; }
+  .hero p { font-size: 1rem; color: var(--sub); max-width: 560px; margin: 0 auto; font-family: sans-serif; }
+  .hero-meta { font-family: sans-serif; font-size: 0.82rem; color: var(--sub); margin-top: 16px; opacity: 0.7; }
+  /* ── Nav tabs ── */
+  .tabs {
+    display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;
+    padding: 28px 24px 0; max-width: 1000px; margin: 0 auto;
+  }
+  .tab {
+    padding: 8px 20px; border-radius: 99px; font-family: sans-serif; font-size: 0.85rem;
+    cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--sub);
+    transition: all 0.15s;
+  }
+  .tab.active, .tab:hover { border-color: var(--gold-border); background: var(--gold-dim); color: var(--gold); }
+  /* ── Content ── */
+  .content { max-width: 960px; margin: 36px auto 0; padding: 0 24px; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-header { margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--gold-border); }
+  .section-header h2 { font-size: 1.8rem; color: var(--cream); font-weight: 400; margin-bottom: 6px; }
+  .section-header p { font-size: 0.95rem; color: var(--sub); font-family: sans-serif; }
+  /* ── Cards ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+    transition: border-color 0.15s;
+  }
+  .card:hover { border-color: var(--gold-border); }
+  .card-icon { font-size: 1.8rem; margin-bottom: 12px; }
+  .card h3 { font-size: 1rem; color: var(--cream); margin-bottom: 8px; font-family: sans-serif; font-weight: 600; }
+  .card p { font-size: 0.88rem; color: var(--sub); line-height: 1.65; font-family: sans-serif; }
+  .card ul { padding-left: 16px; font-family: sans-serif; font-size: 0.85rem; color: var(--sub); }
+  .card ul li { margin-bottom: 4px; }
+  /* ── Group headings ── */
+  .group-label {
+    font-family: sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--gold); margin: 28px 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .group-label::after { content: ''; flex: 1; height: 1px; background: var(--gold-border); }
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 99px;
+    font-size: 0.72rem; font-weight: 700; font-family: sans-serif;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .badge-paid { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid var(--gold-border); }
+  .badge-free { background: rgba(76,175,130,0.12); color: var(--success); border: 1px solid rgba(76,175,130,0.3); }
+  .badge-new  { background: rgba(100,149,237,0.12); color: #7ab4ff; border: 1px solid rgba(100,149,237,0.3); }
+  /* ── Plan table ── */
+  .plan-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.88rem; margin-top: 12px; }
+  .plan-table th, .plan-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  .plan-table th { color: var(--gold); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .plan-table tr:last-child td { border-bottom: none; }
+  .plan-table td:first-child { color: var(--cream); }
+  .check { color: var(--success); }
+  .cross { color: var(--sub); opacity: 0.4; }
+  /* ── Responsive ── */
+  @media (max-width: 640px) { .hero { padding: 36px 20px 32px; } .hero h1 { font-size: 1.8rem; } .tabs { padding: 20px 12px 0; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <span class="logo">Digital Relative</span>
+  <h1>Feature Overview</h1>
+  <p>A complete reference of everything in the platform — for users, beneficiaries, executors, and admin.</p>
+  <div class="hero-meta">v99 &middot; 24 May 2026 &middot; Confidential</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="show('user')">👤 User</button>
+  <button class="tab" onclick="show('beneficiary')">🤝 Beneficiary</button>
+  <button class="tab" onclick="show('executor')">⚖️ Executor</button>
+  <button class="tab" onclick="show('admin')">🛡️ Admin</button>
+  <button class="tab" onclick="show('plans')">💳 Plans</button>
+</div>
+
+<div class="content">
+
+  <!-- ──────────── USER ──────────── -->
+  <div class="section active" id="section-user">
+    <div class="section-header">
+      <h2>Vault owner experience</h2>
+      <p>Everything a paid user can do from login to legacy planning.</p>
+    </div>
+
+    <div class="group-label">Vault</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <h3>Encrypted vault entries</h3>
+        <p>Store accounts across 13 categories: Banking, Email, Investments, Property, Insurance, Subscriptions, Government, Social Media, Utilities, Medical, Legal, Secure Note, and Other. Every field encrypted with AES-256-GCM before leaving the device.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <h3>Secure notes <span class="badge badge-new">New</span></h3>
+        <p>A full-size encrypted text area for sensitive information that doesn't fit account-credential format — passport numbers, NI number, will location, PIN codes, insurance policy details, or any private note.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <h3>Expiry tracking</h3>
+        <p>Set an expiry date on any entry (passports, policies, licences, contracts). Choose reminder windows of 7, 14, 30, 60, or 90 days. Dashboard shows a banner of expiring items.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏠</div>
+        <h3>Address field with postcode lookup</h3>
+        <p>Each entry can store a postal address. UK postcode lookup via GetAddress.io with manual entry fallback.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏢</div>
+        <h3>Bereavement contacts</h3>
+        <p>100+ UK companies pre-loaded with verified bereavement phone numbers, URLs, and process notes. Select a company when adding an entry and this information is automatically saved — visible to beneficiaries after death.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕐</div>
+        <h3>Version history</h3>
+        <p>Every save creates a snapshot (up to 3 previous versions per entry) including title, category, all encrypted fields, and address. Restore any previous version with one click.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⬆</div>
+        <h3>CSV import <span class="badge badge-new">New</span></h3>
+        <p>Import from 1Password, Bitwarden, LastPass, Chrome, Edge, or any generic CSV. Auto-detects format. Preview and select entries before importing. Plan limit enforced. Passwords encrypted client-side before saving.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Shared links</h3>
+        <p>Generate a secure link to share a single vault entry outside the platform — for a solicitor, accountant, or trusted contact. Optional PIN protection, view count tracking, and owner notification on access.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Documents</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <h3>Document storage</h3>
+        <p>Upload important documents (up to 25MB each) across 9 categories: Identity, Property, Legal, Financial, Insurance, Medical, Employment, Vehicle, Other. Files stored encrypted in UK Supabase Storage.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">👁</div>
+        <h3>In-browser preview <span class="badge badge-new">New</span></h3>
+        <p>PDFs render in a sandboxed iframe. Images (PNG, JPG, GIF, WebP) render inline. SVG excluded for security. Download remains available from preview. URL cached for repeat opens.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Document sharing</h3>
+        <p>Share any document via a signed URL — useful for sending a will or insurance policy to a solicitor without giving them full vault access.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Beneficiary management</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">👥</div>
+        <h3>Named beneficiaries</h3>
+        <p>Add beneficiaries by name, email, and relationship. Free plan: 1. Single: 3. Couples: 5. Each beneficiary receives an invite email and the vault owner receives a notification email with a security warning.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏷</div>
+        <h3>Beneficiary groups <span class="badge badge-new">New</span></h3>
+        <p>Assign an optional group label to each beneficiary (e.g. "Family", "Legal", "Friends"). Filter tabs appear when multiple groups exist. Gold badge shown on each card.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔒</div>
+        <h3>Access levels</h3>
+        <p>Three levels per beneficiary: Full access (all vault categories), Read only (view without passwords), Specific categories. Enforced server-side — passwords never exposed regardless of access level.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Access requirements</h3>
+        <p>Three verification requirements per beneficiary: Death certificate (Onfido-verified), ID only (identity check, no death certificate), Trust only (immediate access on invite acceptance — for very trusted people).</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⭐</div>
+        <h3>Executor designation</h3>
+        <p>Designate one beneficiary as executor. Executors get a dedicated executor tab in the beneficiary portal with a 26-task estate administration checklist.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📨</div>
+        <h3>Resend invite</h3>
+        <p>Resend the invitation email to any beneficiary who hasn't confirmed, with a 1-hour rate limit per beneficiary to prevent spam.</p>
+      </div>
+    </div>
+
+    <div class="group-label">After I'm Gone guide</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">✉️</div>
+        <h3>Personal message</h3>
+        <p>Write a private message to your beneficiaries — shown to them in their portal after access is granted. Stored encrypted.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌸</div>
+        <h3>Funeral wishes</h3>
+        <p>Record burial or cremation preference, music choices, readings, funeral home with address lookup, and any other wishes. Displayed to beneficiaries alongside the personal message.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Getting started guide</h3>
+        <p>8-step onboarding checklist covering: first vault entry, add beneficiary, designate executor, record will location, complete After I'm Gone guide, write personal message, set check-in frequency, and set up MFA. Tracks real completion from the database.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Check-in and dead man's switch</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h3>Configurable check-in</h3>
+        <p>Set a check-in frequency of 14, 30, 60, or 90 days. Check in from the dashboard with one click (60-second idempotency guard prevents double-check-in). Dashboard shows next due date and countdown.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚠️</div>
+        <h3>Overdue reminders</h3>
+        <p>If check-in is missed, email reminders are sent at 3, 7, and 14 days overdue. If an SMS-capable phone number is provided, an SMS reminder is sent alongside each email.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔔</div>
+        <h3>Switch trigger</h3>
+        <p>After the full frequency period passes without a check-in, beneficiaries receive email notifications to begin the access process. Vault owner can check in at any time to halt the process.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Security</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <h3>Two-credential architecture</h3>
+        <p>Login password controls account access. Vault PIN encrypts vault contents (PBKDF2 600k iterations). Changing your login password does not affect vault encryption. Your PIN never leaves your device.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛡</div>
+        <h3>Multi-factor authentication</h3>
+        <p>Mandatory for email/password accounts. TOTP authenticator app (primary) or email OTP (fallback). MFA unenrolment requires email OTP re-verification. Lost device: identity verification then service-role reset.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔮</div>
+        <h3>Recovery codes <span class="badge badge-new">New</span></h3>
+        <p>Generate 8 one-time vault PIN recovery codes. Each independently encrypts the PIN (PBKDF2 100k). If you forget your vault PIN, redeem a code to regain access. Codes are marked used on redemption. Fetch count tracks potential exfiltration.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎭</div>
+        <h3>Duress PIN</h3>
+        <p>Set a secondary PIN that shows a decoy vault. When used, silently alerts the vault owner and Digital Relative's security team by email. No visible indicator that duress mode is active.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <h3>Trusted device</h3>
+        <p>Optionally skip PIN entry on a trusted device. PIN encrypted with a device-specific key (PBKDF2 from a localStorage token). Clearing browser storage revokes trust. Manage trusted devices in Settings.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔒</div>
+        <h3>Auto-lock</h3>
+        <p>30-minute inactivity lock on the vault. 8-hour absolute session limit (applies even on trusted devices). Re-entering PIN or trusted device auto-unlock resumes the session.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Settings</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <h3>Language</h3>
+        <p>Interface available in English, Polish, Urdu, and Arabic. Arabic applies right-to-left layout automatically. Language preference stored per user.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Audit log</h3>
+        <p>Recent account activity including sign-ins, vault changes, beneficiary additions, and MFA events. Visible in Settings under Recent activity.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💻</div>
+        <h3>Device log</h3>
+        <p>All recent sign-ins with device type, approximate location, and timestamp. New device triggers an alert email. Review and monitor from Settings.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📤</div>
+        <h3>GDPR data export</h3>
+        <p>Export all your personal data as a JSON file with a SHA-256 integrity hash. Includes vault entry metadata (ciphertext), beneficiaries, audit log, and preferences. Available from Settings.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗑</div>
+        <h3>Account deletion</h3>
+        <p>Two-step deletion: type DELETE, then re-enter your login password (OAuth users skip password step). Permanently deletes vault-files and death-certificates storage buckets, anonymises audit log.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <h3>SMS reminders <span class="badge badge-new">New</span></h3>
+        <p>Optional mobile number (E.164 format) for SMS check-in reminders alongside email. Validated client-side and server-side. Twilio only used if a number is provided.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Shared links management</h3>
+        <p>View, revoke, and track all shared links from Settings. See view counts and last access time.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">👩‍💑</div>
+        <h3>Couples vault</h3>
+        <p>Invite a partner to share the couples plan. Each partner retains a fully separate vault with its own PIN. Couples plan covers both vaults (5 beneficiaries, 5GB storage). Separation flow preserves both vaults.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Emergency access</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🏥</div>
+        <h3>Death certificate submission</h3>
+        <p>Beneficiaries can submit a death certificate for Onfido verification to trigger access. File validated by magic bytes. Max 25MB.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏳</div>
+        <h3>48-hour hold on all access</h3>
+        <p>Every emergency access request (regardless of verification method) is held for 48 hours. The vault owner is notified and can deny the request if still alive. Hold enforced server-side by the scheduler — cannot be bypassed from the client.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────── BENEFICIARY ──────────── -->
+  <div class="section" id="section-beneficiary">
+    <div class="section-header">
+      <h2>Beneficiary portal</h2>
+      <p>What a nominated beneficiary sees and can do after receiving an access link.</p>
+    </div>
+
+    <div class="group-label">Access and identity</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Token-based access</h3>
+        <p>Beneficiaries access the portal via a personal invite link. The link contains a one-time-style token. No account or login required.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🪪</div>
+        <h3>Identity verification</h3>
+        <p>Powered by Onfido. Upload a passport, driving licence, or national ID. On verification, Tier 2 access unlocks — revealing account usernames and notes in addition to bereavement contacts.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏰</div>
+        <h3>Session security</h3>
+        <p>30-minute inactivity timeout with a clear "Session expired" screen. All vault content clears on timeout. No persistent storage of vault data in the browser.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <h3>Geographic access alert</h3>
+        <p>If a beneficiary accesses the portal from outside the UK, the vault owner receives an automatic email alert (detected via Cloudflare's IP geolocation headers).</p>
+      </div>
+    </div>
+
+    <div class="group-label">What to do tab</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>Immediate tasks</h3>
+        <p>Pre-populated checklist: Register the death (within 5 days), Use Tell Me Once (notify HMRC, DVLA, DWP, council in one step), Arrange the funeral. Links to gov.uk resources.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <h3>First week tasks</h3>
+        <p>Contact a solicitor about probate, plus all vault entries categorised as Banking, Legal, or Other — with their bereavement contact numbers.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗓</div>
+        <h3>First month tasks</h3>
+        <p>Vault entries categorised as Investments, Insurance, Utilities, Property, Medical, and Digital — each with bereavement contacts where pre-loaded.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Helpful service links</h3>
+        <p>Direct links to: Tell Me Once, Death Notification Service, Bereavement Register, Cruse Bereavement Support, Citizens Advice, and GOV.UK Probate.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Their guide tab</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">💛</div>
+        <h3>Personal message</h3>
+        <p>The vault owner's personal message to their family — displayed prominently in a gold card.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌸</div>
+        <h3>Funeral wishes</h3>
+        <p>Burial or cremation preference, music, readings, funeral home details, and any other wishes the owner recorded.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Letter templates tab</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">✉️</div>
+        <h3>Bereavement letter template</h3>
+        <p>Pre-written professional letter for notifying institutions of a death. Auto-populated with the deceased's name and the beneficiary's name. One-click copy to clipboard.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Emergency access</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Death certificate submission</h3>
+        <p>Beneficiaries can submit a death certificate to request vault access if the dead man's switch hasn't triggered naturally. The request enters a 48-hour hold. The vault owner can deny during this period.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────── EXECUTOR ──────────── -->
+  <div class="section" id="section-executor">
+    <div class="section-header">
+      <h2>Executor dashboard</h2>
+      <p>The executor tab — visible only to the beneficiary designated as executor by the vault owner.</p>
+    </div>
+
+    <div class="group-label">Overview</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Progress tracking</h3>
+        <p>Overall completion percentage bar showing how many of the 26 tasks are marked Done. Updates live as statuses change.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗂</div>
+        <h3>Filter by status</h3>
+        <p>Filter the full task list to show only To do, In progress, Done, or All. Useful for focusing on what's next or reviewing what's complete.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💼</div>
+        <h3>Relevant vault entries</h3>
+        <p>Banking, investments, property, legal, and insurance entries from the vault shown at the bottom — the accounts that need to be notified or closed during estate administration.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Legal and probate — 5 tasks</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <h3>Task list</h3>
+        <ul>
+          <li>Locate original will and codicils</li>
+          <li>Determine if probate is required</li>
+          <li>Apply for Grant of Probate or Letters of Administration</li>
+          <li>Obtain at least 10 certified death certificate copies</li>
+          <li>Consider appointing a solicitor</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group-label">Financial accounts — 6 tasks</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🏦</div>
+        <h3>Task list</h3>
+        <ul>
+          <li>Notify banks and freeze or close accounts</li>
+          <li>Collect and value all assets</li>
+          <li>Open an executor bank account for the estate</li>
+          <li>Claim any pension death benefits</li>
+          <li>Claim life insurance policies</li>
+          <li>Transfer or liquidate investments</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group-label">Tax and HMRC — 4 tasks</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Task list</h3>
+        <ul>
+          <li>Notify HMRC and submit final tax return</li>
+          <li>Assess inheritance tax liability</li>
+          <li>Pay any inheritance tax (due before probate)</li>
+          <li>Consider capital gains on estate sales</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group-label">Property — 4 tasks</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🏠</div>
+        <h3>Task list</h3>
+        <ul>
+          <li>Value all property</li>
+          <li>Ensure property remains insured</li>
+          <li>Transfer or sell property</li>
+          <li>End any tenancy agreements</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group-label">Distribution — 7 tasks</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Task list</h3>
+        <ul>
+          <li>Identify all beneficiaries and their entitlements</li>
+          <li>Notify all beneficiaries of their inheritance</li>
+          <li>Settle all outstanding debts and liabilities</li>
+          <li>Distribute the estate to beneficiaries</li>
+          <li>Prepare and distribute final estate accounts</li>
+          <li>Keep records of all executor decisions and transactions</li>
+          <li>Claim any reasonable executor expenses from the estate</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group-label">Per-task tools</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🔄</div>
+        <h3>Status per task</h3>
+        <p>Each task has a dropdown: To do, In progress, Done, N/A. Selecting Done strikes through the task. N/A is for tasks that don't apply to this estate.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <h3>Notes per task</h3>
+        <p>Attach a private note to any task — solicitor name, reference number, deadline, or anything relevant. Stored in the browser session.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; padding:14px 18px; background:rgba(201,168,76,0.06); border:1px solid var(--gold-border); border-radius:10px; font-family:sans-serif; font-size:0.85rem; color:var(--sub);">
+      <strong style="color:var(--cream);">Note:</strong> Executor task progress is stored in the browser session only — it resets when the tab is closed. This is by design (the portal contains sensitive vault data) but means executors should work through the checklist in one session or note progress externally. A future version will persist progress to the server.
+    </div>
+  </div>
+
+  <!-- ──────────── ADMIN ──────────── -->
+  <div class="section" id="section-admin">
+    <div class="section-header">
+      <h2>Admin capabilities</h2>
+      <p>Internal-only pages and controls for Digital Relative staff.</p>
+    </div>
+
+    <div class="group-label">Death certificate review</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Manual review queue</h3>
+        <p>Admin page at <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">/admin-review</code> showing all pending emergency access requests. Each row shows requester name, vault owner, submission date, and certificate type.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🪪</div>
+        <h3>Certificate preview</h3>
+        <p>Signed Supabase URL for each uploaded death certificate, viewable in a sandboxed iframe (PDF) or img tag (image). Access requires an admin token — not accessible to regular users.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h3>Manual approval</h3>
+        <p>Admin can approve a pending request — setting <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">manually_approved = true</code> on the access request. The scheduler then processes it within the next cron run (subject to the 48-hour hold).</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <h3>Token-gated access</h3>
+        <p>The admin review page generates a time-limited, single-use review token rather than using a static admin token. The token is generated server-side and verified on every admin action. The review sandbox attribute prevents script execution in PDFs.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Security monitoring</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">🎭</div>
+        <h3>Duress alerts</h3>
+        <p>When a vault owner uses their duress PIN, an email is sent silently to both the owner's registered address and <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">admin@security</code>. The alert contains the owner's name, timestamp, and user ID.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📧</div>
+        <h3>Monthly health emails</h3>
+        <p>On the 1st of each month, the scheduler sends a vault health summary to each paid user: entry count, expired entries, unconfirmed beneficiaries, and a prompt to check in. Helps retain active users and reduce false-trigger risk.</p>
+      </div>
+    </div>
+
+    <div class="group-label">Infrastructure</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <h3>Daily scheduler</h3>
+        <p>The <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">checkin-scheduler</code> edge function runs daily via Supabase cron. Handles: check-in reminders (3/7/14 days overdue), SMS reminders, dead man's switch trigger, 48-hour hold processing, expiry reminders, and monthly health emails (1st of month only).</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚦</div>
+        <h3>Rate limit monitoring</h3>
+        <p>The <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">rate_limits</code> table logs all rate-limited actions (beneficiary access, emergency submit, MFA). A probabilistic TTL trigger cleans entries older than 1 hour to prevent unbounded growth.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏗</div>
+        <h3>Deployment</h3>
+        <p>Git push to main triggers Vercel auto-deploy for the frontend. A GitHub Action deploys changed edge functions. Deploy script available at <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px;font-size:0.85em;">.\deploy.ps1</code> for local deployment.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────── PLANS ──────────── -->
+  <div class="section" id="section-plans">
+    <div class="section-header">
+      <h2>Plans and pricing</h2>
+      <p>Feature availability by plan tier.</p>
+    </div>
+
+    <table class="plan-table">
+      <tr>
+        <th>Feature</th>
+        <th>Free</th>
+        <th>Single — £18/yr</th>
+        <th>Couples — £5/mo or £45/yr</th>
+      </tr>
+      <tr><td>Vault entries</td><td>5</td><td>Unlimited</td><td>Unlimited (per person)</td></tr>
+      <tr><td>Beneficiaries</td><td>1</td><td>3</td><td>5</td></tr>
+      <tr><td>Document storage</td><td class="cross">–</td><td>1 GB</td><td>5 GB</td></tr>
+      <tr><td>Dead man's switch</td><td class="cross">–</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>File uploads</td><td class="cross">–</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>CSV import</td><td>Up to 5 entries</td><td class="check">✓ Unlimited</td><td class="check">✓ Unlimited</td></tr>
+      <tr><td>Shared links</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Secure notes</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>After I'm Gone guide</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Version history</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Recovery codes</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>MFA</td><td class="check">✓ (required)</td><td class="check">✓ (required)</td><td class="check">✓ (required)</td></tr>
+      <tr><td>Trusted device</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Duress PIN</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>GDPR export</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Partner vault</td><td class="cross">–</td><td class="cross">–</td><td class="check">✓</td></tr>
+      <tr><td>Billing</td><td>None</td><td>Annual only</td><td>Monthly or annual</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<script>
+function show(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.getElementById('section-' + tab).classList.add('active')
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(tab)) t.classList.add('active')
+  })
+}
+</script>
+</body>
+</html>

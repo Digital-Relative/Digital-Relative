@@ -28,6 +28,26 @@ export default function NotificationBell({ onNav }) {
     setOpen(false)
   }
 
+  function typeIcon(type) {
+    const icons = {
+      checkin_due_soon:       '⏰',
+      checkin_overdue:        '⚠️',
+      entry_expiring:         '📅',
+      new_device:             '💻',
+      shared_link_accessed:   '🔗',
+      beneficiary_confirmed:  '✅',
+      couples_invite:         '💑',
+    }
+    return icons[type] || '🔔'
+  }
+
+  function typeBg(type) {
+    if (type === 'checkin_overdue')      return 'rgba(224,82,82,0.08)'
+    if (type === 'new_device')           return 'rgba(224,160,82,0.08)'
+    if (type === 'checkin_due_soon')     return 'rgba(201,168,76,0.08)'
+    return 'transparent'
+  }
+
   const timeAgo = (date) => {
     const diff = Date.now() - new Date(date).getTime()
     const mins = Math.floor(diff / 60000)
@@ -76,12 +96,13 @@ export default function NotificationBell({ onNav }) {
           </div>
 
           {notifications.length === 0 ? (
-            <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-sub)', fontSize: 13 }}>
+            <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-sub)', fontSize: 13, fontFamily: 'var(--sans)' }}>
               No notifications
             </div>
           ) : (
             notifications.map(n => (
-              <div key={n.id} onClick={() => handleAction(n)} style={{
+              <div key={n.id}
+                style={{ background: typeBg(n.type) }} onClick={() => handleAction(n)} style={{
                 padding: '12px 16px', cursor: 'pointer', transition: 'background 0.1s',
                 background: n.read ? 'transparent' : 'rgba(201,168,76,0.05)',
                 borderBottom: '1px solid var(--border)',

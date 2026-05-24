@@ -188,7 +188,15 @@ function UploadModal({ onClose, onUploaded }) {
 function DocumentCard({ doc, onDelete, onShare }) {
   const { user } = useAuth()
   const [downloading, setDownloading] = useState(false)
+  const [previewing, setPreviewing]   = useState(false)
+  const [previewUrl, setPreviewUrl]   = useState(null)
   const cat = DOC_CATEGORIES.find(c => c.id === doc.category)
+
+  const isPreviewable = doc.file_name && (
+    /\.(pdf)$/i.test(doc.file_name) ||
+    /\.(png|jpg|jpeg|gif|webp)$/i.test(doc.file_name)
+  )
+  const isImage = doc.file_name && /\.(png|jpg|jpeg|gif|webp)$/i.test(doc.file_name)
 
   async function handleDownload() {
     setDownloading(true)
@@ -209,6 +217,29 @@ function DocumentCard({ doc, onDelete, onShare }) {
     }
   }
 
+  async function handlePreview() {
+    if (previewUrl) { setPreviewing(true); return }
+    setDownloading(true)
+    try {
+      const { data, error } = await supabase.storage
+        .from('vault-files')
+        .download(doc.storage_path)
+      if (error) throw error
+      const url = URL.createObjectURL(data)
+      setPreviewUrl(url)
+      setPreviewing(true)
+    } catch {
+      toast.error('Preview failed - try downloading instead')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  function closePreview() {
+    setPreviewing(false)
+    // Don't revoke URL - keep cached for next preview
+  }
+
   async function handleDelete() {
     if (!confirm(`Permanently delete "${doc.name}"? This cannot be undone.`)) return
     try {
@@ -222,6 +253,7 @@ function DocumentCard({ doc, onDelete, onShare }) {
   }
 
   return (
+    <>
     <div className="card-static" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{
         width: 44, height: 44, borderRadius: 8, flexShrink: 0,
@@ -241,6 +273,12 @@ function DocumentCard({ doc, onDelete, onShare }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        {isPreviewable && (
+          <button className="btn-ghost" onClick={handlePreview} disabled={downloading}
+            style={{ fontSize: 12, padding: '6px 14px' }}>
+            {downloading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '👁 Preview'}
+          </button>
+        )}
         <button className="btn-ghost" onClick={handleDownload} disabled={downloading}
           style={{ fontSize: 12, padding: '6px 14px' }}>
           {downloading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '↓ Download'}
@@ -252,6 +290,37 @@ function DocumentCard({ doc, onDelete, onShare }) {
         </button>
       </div>
     </div>
+
+    {/* Preview overlay */}
+    {previewing && previewUrl && (
+      <div className="modal-overlay" onClick={closePreview} style={{ zIndex: 10000 }}>
+        <div style={{
+          position: 'relative', maxWidth: '92vw', maxHeight: '92vh',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+        }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 10, gap: 12 }}>
+            <span style={{ color: 'var(--cream)', fontSize: 14, fontWeight: 500 }}>{doc.name}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleDownload} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--cream)', padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--sans)' }}>
+                Download
+              </button>
+              <button onClick={closePreview} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--cream)', padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--sans)' }}>
+                Close
+              </button>
+            </div>
+          </div>
+          {isImage ? (
+            <img src={previewUrl} alt={doc.name}
+              style={{ maxWidth: '88vw', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }} />
+          ) : (
+            <iframe src={previewUrl} title={doc.name}
+              sandbox="allow-same-origin"
+              style={{ width: '88vw', height: '80vh', border: 'none', borderRadius: 8, background: '#fff' }} />
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

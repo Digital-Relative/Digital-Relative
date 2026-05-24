@@ -315,7 +315,12 @@ create table if not exists public.notifications (
     'partner_accepted',      -- your partner link was accepted
     'partner_unlinked',      -- partner removed the link
     'vault_access_granted',  -- death switch fired, you now have access
-    'entry_expiring'         -- an entry is expiring soon
+    'entry_expiring',        -- an entry is expiring soon
+    'checkin_due_soon',      -- check-in due in 3 days
+    'checkin_overdue',       -- check-in is overdue
+    'new_device',            -- new device signed in
+    'shared_link_accessed',  -- a shared link was accessed
+    'security_alert'         -- security event (replay attack etc)
   )),
   title      text not null,
   message    text not null,
@@ -327,8 +332,24 @@ create table if not exists public.notifications (
 
 create index if not exists notifications_user_id_idx on public.notifications(user_id, read);
 alter table public.notifications enable row level security;
-create policy "Users can manage own notifications" on public.notifications
-  for all using (auth.uid() = user_id);
+-- D-2 fix: split into separate policies — users can only mark as read, not mutate type/title/message
+create policy "Users can read own notifications" on public.notifications
+  for select using (auth.uid() = user_id);
+
+create policy "Users can mark own notifications read" on public.notifications
+  for update using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    -- Only allow changing the 'read' field — all other fields must be unchanged
+    and type       = (select type       from public.notifications n where n.id = notifications.id)
+    and title      = (select title      from public.notifications n where n.id = notifications.id)
+    and message    = (select message    from public.notifications n where n.id = notifications.id)
+    and action_url is not distinct from (select action_url from public.notifications n where n.id = notifications.id)
+  );
+
+create policy "Users can delete own notifications" on public.notifications
+  for delete using (auth.uid() = user_id);
+-- Note: INSERT is service-role only (no client insert policy)
 
 -- ── Couples partner linking ────────────────────────────────────
 create table if not exists public.partner_links (
@@ -641,3 +662,26 @@ begin
   where expires_at < now() - interval '7 days'; -- keep 7 days after expiry for audit
 end;
 $$;
+
+-- LOW-2: Notification TTL cleanup (90 days)
+create or replace function public.cleanup_notifications()
+returns void language plpgsql as $$
+begin
+  delete from public.notifications where created_at < now() - interval '90 days';
+end;
+$$;
+
+create or replace function public.trigger_cleanup_notifications()
+returns trigger language plpgsql as $$
+begin
+  if (random() < 0.005) then  -- run on ~0.5% of inserts
+    perform public.cleanup_notifications();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists cleanup_notifications_trigger on public.notifications;
+create trigger cleanup_notifications_trigger
+  after insert on public.notifications
+  for each row execute function public.trigger_cleanup_notifications();

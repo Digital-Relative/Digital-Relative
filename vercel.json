@@ -29,7 +29,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://assets.onfido.com; style-src 'self' 'unsafe-inline' https://assets.onfido.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://assets.onfido.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.eu.onfido.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://assets.onfido.com https://client.crisp.chat; style-src 'self' 'unsafe-inline' https://assets.onfido.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://assets.onfido.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.eu.onfido.com https://api.getaddress.io https://*.crisp.chat wss://*.crisp.chat; frame-src https://js.stripe.com https://hooks.stripe.com blob: https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
         },
         {
           "key": "Cross-Origin-Opener-Policy",

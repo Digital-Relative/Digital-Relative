@@ -10,5 +10,6 @@ export const CATEGORIES = [
   { id: 'utilities',     label: 'Utilities',      icon: '⚡' },
   { id: 'medical',       label: 'Medical',        icon: '🏥' },
   { id: 'legal',         label: 'Legal',          icon: '⚖️' },
+  { id: 'secure_note',   label: 'Secure Note',    icon: '📝' },
   { id: 'other',         label: 'Other',          icon: '🔑' },
 ]

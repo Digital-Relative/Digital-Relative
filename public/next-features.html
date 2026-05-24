@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next Features — Digital Relative</title>
+<style>
+  :root {
+    --navy: #0d1b2a;
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.08);
+    --gold-border: rgba(201,168,76,0.25);
+    --cream: #f0ece2;
+    --text: #c8c1b3;
+    --sub: #7a93aa;
+    --border: rgba(255,255,255,0.07);
+    --success: #4caf82;
+    --warn: #e07a52;
+    --danger: #e05252;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; background: var(--navy); color: var(--text); line-height: 1.75; padding-bottom: 80px; }
+
+  .hero { background: linear-gradient(135deg, #090f18 0%, #0d1b2a 60%, #0f2237 100%); border-bottom: 1px solid var(--gold-border); padding: 56px 48px 48px; text-align: center; }
+  .logo { font-size: 1.2rem; font-weight: 700; color: var(--gold); margin-bottom: 24px; display: block; text-decoration: none; letter-spacing: 0.02em; }
+  .hero h1 { font-size: 2.2rem; color: var(--cream); margin-bottom: 10px; font-weight: 400; }
+  .hero p { font-size: 0.95rem; color: var(--sub); font-family: sans-serif; max-width: 540px; margin: 0 auto; }
+  .hero-meta { font-family: sans-serif; font-size: 0.8rem; color: var(--sub); margin-top: 14px; opacity: 0.65; }
+
+  .content { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+
+  .tier { margin-bottom: 52px; }
+  .tier-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 14px; border-bottom: 2px solid var(--gold-border); }
+  .tier-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .tier-header h2 { font-size: 1.25rem; color: var(--cream); font-family: sans-serif; font-weight: 700; letter-spacing: 0.02em; }
+  .tier-header p { font-size: 0.85rem; color: var(--sub); font-family: sans-serif; margin-top: 2px; }
+
+  .ideas { display: flex; flex-direction: column; gap: 14px; }
+  .idea { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; transition: border-color 0.15s; }
+  .idea:hover { border-color: var(--gold-border); }
+  .idea-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 10px; }
+  .idea-icon { font-size: 1.7rem; flex-shrink: 0; margin-top: 2px; }
+  .idea-title { font-size: 1rem; color: var(--cream); font-family: sans-serif; font-weight: 600; margin-bottom: 4px; }
+  .idea-subtitle { font-size: 0.82rem; color: var(--sub); font-family: sans-serif; }
+  .idea-body { font-size: 0.88rem; color: var(--sub); font-family: sans-serif; line-height: 1.7; padding-left: 44px; }
+  .idea-body p { margin-bottom: 8px; }
+  .idea-body p:last-child { margin-bottom: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 44px; margin-top: 10px; }
+  .tag { font-size: 0.72rem; font-family: sans-serif; font-weight: 600; padding: 2px 10px; border-radius: 99px; }
+  .tag-security { background: rgba(224,82,82,0.12); color: #e07a7a; border: 1px solid rgba(224,82,82,0.2); }
+  .tag-product  { background: rgba(100,149,237,0.12); color: #7ab4ff; border: 1px solid rgba(100,149,237,0.2); }
+  .tag-revenue  { background: rgba(76,175,130,0.12); color: #4caf82; border: 1px solid rgba(76,175,130,0.25); }
+  .tag-retention{ background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid var(--gold-border); }
+  .tag-infra    { background: rgba(255,255,255,0.06); color: var(--sub); border: 1px solid var(--border); }
+  .tag-b2b      { background: rgba(180,100,230,0.12); color: #c47fff; border: 1px solid rgba(180,100,230,0.25); }
+
+  @media (max-width: 640px) { .hero { padding: 36px 20px 32px; } .hero h1 { font-size: 1.7rem; } .idea-body { padding-left: 0; margin-top: 10px; } .tags { padding-left: 0; } }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <a href="/" class="logo">Digital Relative</a>
+  <h1>Next Features</h1>
+  <p>A prioritised backlog of ideas for the product — from the next sprint to the next year.</p>
+  <div class="hero-meta">v99 &middot; 24 May 2026 &middot; Internal</div>
+</div>
+
+<div class="content">
+
+  <!-- TIER 1 -->
+  <div class="tier">
+    <div class="tier-header">
+      <div class="tier-dot" style="background:#e05252;"></div>
+      <div>
+        <h2>Do before marketing launch</h2>
+        <p>These block revenue or create legal/compliance exposure. Fix before spending on acquisition.</p>
+      </div>
+    </div>
+    <div class="ideas">
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🧾</div>
+          <div>
+            <div class="idea-title">Stripe VAT handling</div>
+            <div class="idea-subtitle">One toggle in the Stripe dashboard</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Selling to UK consumers requires correct VAT collection. Stripe Tax automates this entirely — it calculates the correct VAT rate per country, adds it to the checkout, and produces compliant invoices. Without it you may be under-collecting tax as you scale. This is one toggle in the Stripe dashboard under Billing &rarr; Tax.</p>
+        </div>
+        <div class="tags"><span class="tag tag-revenue">Revenue</span><span class="tag tag-infra">Compliance</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🏛</div>
+          <div>
+            <div class="idea-title">ICO registration</div>
+            <div class="idea-subtitle">£40 at ico.org.uk — update footer from "pending"</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Any UK business that processes personal data must register with the ICO. The registration costs £40/year for small organisations. Once done, update the ICO number in the footer, privacy policy, and terms. Non-registration is a legal offence regardless of whether anyone complains.</p>
+        </div>
+        <div class="tags"><span class="tag tag-infra">Legal</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🔍</div>
+          <div>
+            <div class="idea-title">Penetration test</div>
+            <div class="idea-subtitle">~£2,500–4,000 — Pentest People or Cobalt</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>12 rounds of static code review have covered the codebase thoroughly. A penetration test covers the live environment — real token enumeration against the beneficiary portal, PBKDF2 timing analysis, Stripe webhook replay, and authenticated user-level access testing. This is the final step before enterprise sales. The audit reports are a strong pre-read for the pen tester.</p>
+        </div>
+        <div class="tags"><span class="tag tag-security">Security</span><span class="tag tag-b2b">Enterprise</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIER 2 -->
+  <div class="tier">
+    <div class="tier-header">
+      <div class="tier-dot" style="background:#e07a52;"></div>
+      <div>
+        <h2>Next sprint — high value, low complexity</h2>
+        <p>Each of these improves retention or conversion materially. Most are under a day of work.</p>
+      </div>
+    </div>
+    <div class="ideas">
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">📱</div>
+          <div>
+            <div class="idea-title">Push notifications via service worker</div>
+            <div class="idea-subtitle">Check-in reminder before it becomes overdue</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Email check-in reminders only fire when already overdue. A push notification 3 days before the deadline — "Your Digital Relative check-in is due in 3 days" — prevents false triggers entirely. Service workers work in Chrome, Edge, and Firefox on desktop and Android. iOS requires a PWA install prompt. Low effort, significant reduction in accidental switch triggers which is the #1 support issue for this type of product.</p>
+        </div>
+        <div class="tags"><span class="tag tag-retention">Retention</span><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🌟</div>
+          <div>
+            <div class="idea-title">Real testimonials on landing page</div>
+            <div class="idea-subtitle">Placeholder copy currently in place</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The landing page has placeholder testimonial text. Replace with quotes from real beta users. Three is enough. Social proof in this category carries exceptional weight because buying decisions are emotional — "someone like me used this and trusted it" is more powerful than any feature list.</p>
+        </div>
+        <div class="tags"><span class="tag tag-revenue">Conversion</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">💬</div>
+          <div>
+            <div class="idea-title">Intercom or Crisp live chat widget</div>
+            <div class="idea-subtitle">Reduces purchase hesitation at the critical moment</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>People buying a legacy product have emotional and practical questions at the moment of decision. A live chat widget on the pricing and sign-up pages converts hesitation into purchase. Crisp has a generous free tier. The widget script drops in as a single line in index.html.</p>
+        </div>
+        <div class="tags"><span class="tag tag-revenue">Conversion</span><span class="tag tag-retention">Retention</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🔁</div>
+          <div>
+            <div class="idea-title">Executor task progress persisted to server</div>
+            <div class="idea-subtitle">Currently lost on tab close</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The executor checklist resets every time the tab closes because it's stored in sessionStorage by design. A real executor managing an estate over days or weeks needs their progress to persist. The fix is a small <code>beneficiary_sessions</code> table keyed by beneficiary ID. The executor's status and notes would survive across sessions and devices.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🌍</div>
+          <div>
+            <div class="idea-title">Native speaker review of translations</div>
+            <div class="idea-subtitle">Polish, Urdu, Arabic — Fiverr or native speaker review</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The Polish, Urdu, and Arabic translations were generated and should be reviewed by native speakers before being promoted as a feature. Incorrect translations in a product dealing with death and legal matters would be damaging to trust. Each language needs about 3–4 hours of review from a native speaker. This unlocks marketing to diaspora communities — a significantly underserved audience for legacy planning.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span><span class="tag tag-revenue">Market</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIER 3 -->
+  <div class="tier">
+    <div class="tier-header">
+      <div class="tier-dot" style="background:var(--gold);"></div>
+      <div>
+        <h2>Next quarter — meaningful product improvements</h2>
+        <p>Features users will ask for after they've been using the product for a few weeks.</p>
+      </div>
+    </div>
+    <div class="ideas">
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">📲</div>
+          <div>
+            <div class="idea-title">Mobile app (React Native wrapper)</div>
+            <div class="idea-subtitle">Face ID / fingerprint vault unlock, push notifications</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The web app is fully responsive but lacks native mobile capabilities. A React Native wrapper using the existing Supabase auth would get 80% of the way there. The two unique mobile features that justify native: biometric vault unlock (Face ID or fingerprint replaces the vault PIN on mobile) and push notifications for check-in reminders before they become overdue. Offline reading of vault data is also possible with encrypted local storage. Apple's App Store review is the main timeline risk — allow 4–6 weeks for review.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span><span class="tag tag-retention">Retention</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">📋</div>
+          <div>
+            <div class="idea-title">Structured data fields per category</div>
+            <div class="idea-subtitle">Dedicated fields for policy numbers, sort codes, account numbers</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Currently all entries use a generic username/password/notes model. A bank account would benefit from dedicated fields: sort code, account number, IBAN. An insurance policy: policy number, insurer, sum assured, renewal date. A pension: provider, policy reference, scheme name. Structured fields make data more useful for beneficiaries and enable smarter features (e.g. auto-populating bereavement letter templates with the right reference numbers).</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">📊</div>
+          <div>
+            <div class="idea-title">Smarter vault health score</div>
+            <div class="idea-subtitle">Beyond category coverage</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The current completeness score counts covered categories. It could be much smarter: flag entries with no username (incomplete record), flag entries whose passwords haven't been updated in over a year (suggest rotation), flag entries with no bereavement contact matched (prompt to add), flag unconfirmed beneficiary invites, flag missing executor designation. Each flag becomes an actionable item rather than a percentage. This is the difference between "73% complete" and "3 things to fix."</p>
+        </div>
+        <div class="tags"><span class="tag tag-retention">Retention</span><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🔔</div>
+          <div>
+            <div class="idea-title">In-app notification centre</div>
+            <div class="idea-subtitle">Bell icon is wired — content is thin</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The notification bell icon already exists in the sidebar. It currently shows basic activity. Expand it to surface: upcoming check-in reminders, expiring entries, unconfirmed beneficiaries, shared links accessed, new device sign-ins, and recovery code reads. This keeps engagement inside the app rather than relying entirely on email. Users who interact with notifications check in more reliably.</p>
+        </div>
+        <div class="tags"><span class="tag tag-retention">Retention</span><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">📄</div>
+          <div>
+            <div class="idea-title">Will and LPA prompt with Farewill integration</div>
+            <div class="idea-subtitle">Farewill referral already in code — needs revenue tracking</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The Farewill referral link is already on the dashboard. The problem is it doesn't track conversions — so there's no way to know if it generates revenue. Two improvements: first, add UTM parameters to measure click-through and conversions. Second, expand the prompt into a proper LPA section in the getting started checklist — "Do you have a Lasting Power of Attorney? If not, Farewill can help." LPA is one of the highest-value adjacent products for this audience.</p>
+        </div>
+        <div class="tags"><span class="tag tag-revenue">Revenue</span><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">👥</div>
+          <div>
+            <div class="idea-title">Shared entries between joint beneficiaries</div>
+            <div class="idea-subtitle">Couples with jointly-held assets</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>A joint account, shared mortgage, or jointly-held investment currently has to be duplicated across both partners' vaults. A "shared entry" visible to multiple beneficiaries would solve this — and is particularly valuable for the couples plan where both partners might have the same beneficiaries for joint assets. The <code>beneficiary_shared_entries</code> junction table is already in the schema, waiting to be wired up.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIER 4 -->
+  <div class="tier">
+    <div class="tier-header">
+      <div class="tier-dot" style="background:var(--success);"></div>
+      <div>
+        <h2>Later — growth and B2B</h2>
+        <p>Larger investments with potentially large returns. Validate demand first.</p>
+      </div>
+    </div>
+    <div class="ideas">
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🏢</div>
+          <div>
+            <div class="idea-title">Solicitor and IFA referral programme</div>
+            <div class="idea-subtitle">The highest-trust acquisition channel in this category</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Solicitors and Independent Financial Advisers routinely ask clients "have you organised your digital accounts?" and currently have no answer to give them. A simple referral programme where professionals earn a small commission per referred paying customer would be high-value on both sides. The implementation is just a referral code on signup and a tracking table. The sales effort is visiting 10 local solicitors and IFAs with a one-pager.</p>
+          <p>White-label is the next step: the same product under a firm's brand. This is a significantly larger technical and commercial investment but potentially a much larger revenue stream — firms pay per seat rather than per user, and churn is near zero.</p>
+        </div>
+        <div class="tags"><span class="tag tag-b2b">B2B</span><span class="tag tag-revenue">Revenue</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🤖</div>
+          <div>
+            <div class="idea-title">AI vault completion assistant</div>
+            <div class="idea-subtitle">Prompts users through what they should add</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The biggest drop-off point in the user journey is after signup — users know they should add entries but don't know where to start. An AI assistant that asks "do you have a pension? What bank do you use? Do you have life insurance?" and walks them through adding entries one by one could dramatically improve vault completeness rates. Higher completeness means higher perceived value means better retention. This works best as an onboarding modal that surfaces once, and a "complete my vault" button that re-triggers it later.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span><span class="tag tag-retention">Retention</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🌐</div>
+          <div>
+            <div class="idea-title">International expansion</div>
+            <div class="idea-subtitle">Australia, Canada, and Ireland as first targets</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>The core product works internationally. The gaps are: bereavement contact database (currently UK-only), legal content in the executor checklist (currently England and Wales law), and the emergency access flow which references UK-specific Onfido verification. Australia, Canada, and Ireland have similar legal systems and significant English-speaking diaspora communities who are already culturally primed for this type of product. The technical work is modest — the commercial and compliance work is meaningful.</p>
+        </div>
+        <div class="tags"><span class="tag tag-revenue">Revenue</span><span class="tag tag-product">Product</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🏦</div>
+          <div>
+            <div class="idea-title">Open Banking integration</div>
+            <div class="idea-subtitle">Auto-detect accounts — never have to manually add banking entries</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>Under Open Banking (PSD2 in the UK), users can grant read-only access to their financial accounts via TrueLayer or Plaid. Digital Relative could use this to auto-detect which banks, investment platforms, and credit cards a user has — and pre-populate vault entries. This removes the biggest friction in vault setup ("I'm not sure which accounts I have"). The data would be encrypted immediately and the Open Banking connection could be revoked. The regulatory complexity of being an Open Banking Third Party Provider is the main barrier.</p>
+        </div>
+        <div class="tags"><span class="tag tag-product">Product</span><span class="tag tag-revenue">Revenue</span></div>
+      </div>
+
+      <div class="idea">
+        <div class="idea-top">
+          <div class="idea-icon">🔐</div>
+          <div>
+            <div class="idea-title">Hardware key (WebAuthn / FIDO2) support</div>
+            <div class="idea-subtitle">YubiKey as vault unlock method</div>
+          </div>
+        </div>
+        <div class="idea-body">
+          <p>WebAuthn (the Web Authentication API) is now widely supported and allows hardware security keys like YubiKey to authenticate users without a PIN or password. For high-security users — particularly those in regulated professions or with large estates — a hardware key as the vault unlock method is significantly more phishing-resistant than a PIN. The technical implementation uses the browser's native WebAuthn API, which can be integrated with Supabase's existing auth system.</p>
+        </div>
+        <div class="tags"><span class="tag tag-security">Security</span><span class="tag tag-b2b">Enterprise</span></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

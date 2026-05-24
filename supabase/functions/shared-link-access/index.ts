@@ -1,5 +1,16 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
+import { sendEmail } from '../_shared/resend.ts'
+
+
+function he(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
 const ALLOWED_ORIGINS = new Set([
   'https://digitalrelative.co.uk',
@@ -149,6 +160,38 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Not found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Notify owner if they requested it
+    if (link.notify_on_access) {
+      const { data: owner } = await supabase.auth.admin.getUserById(link.user_id)
+      const ownerEmail = owner?.user?.email
+      if (ownerEmail) {
+        const ip       = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'Unknown'
+        const country  = req.headers.get('cf-ipcountry') || ''
+        const location = country && country !== 'XX' ? `${ip} (${country})` : ip
+        const time     = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' })
+        await sendEmail({
+          to: ownerEmail,
+          subject: 'Your Digital Relative shared link was accessed',
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;">
+            <h2 style="color:#c9a84c;">Shared link accessed</h2>
+            <p>Your shared link for <strong>${he(link.content_label || 'vault content')}</strong> was just viewed.</p>
+            <p><strong>Time:</strong> ${he(time)}<br><strong>Location:</strong> ${he(location)}<br><strong>Total views:</strong> ${link.view_count + 1}</p>
+            <p>If you did not expect this, revoke the link from Digital Relative > Share links.</p>
+          </div>`,
+        }).catch(() => {})
+        supabase.from('audit_log').insert({ user_id: link.user_id, action: 'shared_link_accessed', metadata: { label: link.content_label } }).catch(() => {})
+        // Write in-app notification
+        supabase.from('notifications').insert({
+          user_id:    link.user_id,
+          type:       'shared_link_accessed',
+          title:      'Shared link accessed',
+          message:    `Your shared link was accessed.`,
+          action_url: 'https://digitalrelative.co.uk/?page=sharedlinks',
+          read:       false,
+        }).catch(() => {})
+      }
     }
 
     return new Response(JSON.stringify({

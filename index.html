@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0d1b2a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Digital Relative" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Digital Relative — the secure digital legacy vault for UK families. Store passwords, accounts, and documents so your family can access what they need when they need it." />
@@ -15,5 +21,7 @@
   <a href="#root" class="skip-link">Skip to main content</a>
     <div id="root" role="main"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Crisp live chat initialised from main.jsx if VITE_CRISP_WEBSITE_ID is set -->
   </body>
 </html>

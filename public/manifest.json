@@ -1,0 +1,20 @@
+{
+  "name": "Digital Relative",
+  "short_name": "Digital Relative",
+  "description": "Secure digital legacy vault for UK families",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "en-GB"
+}

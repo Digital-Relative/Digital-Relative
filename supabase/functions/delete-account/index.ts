@@ -29,13 +29,32 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 15_000
 
 
 // Module-level recursive storage listing for delete-account
-async function listAllPaths(supabase: any, prefix: string): Promise<string[]> {
+async function listAllPathsFromBucket(supabase: any, bucket: string, prefix: string, depth = 0): Promise<string[]> {
+  // C-5 fix: limit recursion depth and total paths to prevent unbounded listing
+  if (depth > 5) return []
+  const { data: items } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 })
+  if (!items?.length) return []
+  const paths: string[] = []
+  for (const item of items) {
+    if (paths.length >= 10_000) break  // safety cap
+    if (item.id) {
+      paths.push(`${prefix}/${item.name}`)
+    } else {
+      const subPaths = await listAllPathsFromBucket(supabase, bucket, `${prefix}/${item.name}`, depth + 1)
+      paths.push(...subPaths)
+    }
+  }
+  return paths
+}
+
+async function listAllPaths(supabase: any, prefix: string, depth = 0): Promise<string[]> {
+  if (depth > 5) return []
   const { data: items } = await supabase.storage.from('vault-files').list(prefix, { limit: 1000 })
   if (!items?.length) return []
   const paths: string[] = []
   for (const item of items) {
     if (item.id === null) {
-      const subPaths = await listAllPaths(supabase, `${prefix}/${item.name}`)
+      const subPaths = await listAllPaths(supabase, `${prefix}/${item.name}`, depth + 1)
       paths.push(...subPaths)
     } else {
       paths.push(`${prefix}/${item.name}`)
@@ -75,6 +94,29 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 403, headers: hdrs })
     }
 
+    // G-2 fix: trigger separation first to protect partner's vault data before deletion
+    const { data: activeLink } = await supabase
+      .from('partner_links')
+      .select('id, requester_id, partner_id')
+      .or(`requester_id.eq.${userId},partner_id.eq.${userId}`)
+      .eq('status', 'accepted')
+      .maybeSingle()
+
+    if (activeLink) {
+      // Unlink partner before deletion so their vault is not destroyed
+      await supabase.from('partner_links').update({ status: 'unlinked' }).eq('id', activeLink.id)
+      // Notify the partner
+      const partnerId = activeLink.requester_id === userId ? activeLink.partner_id : activeLink.requester_id
+      await supabase.from('notifications').insert({
+        user_id:    partnerId,
+        type:       'partner_unlinked',
+        title:      'Your partner has deleted their account',
+        message:    'Your couples vault has been separated. Your vault data is safe and unchanged.',
+        action_url: 'https://digitalrelative.co.uk/?page=settings',
+        read:       false,
+      }).catch(() => {})
+    }
+
     // 1. Cancel Stripe subscription
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     const { data: profile } = await supabase
@@ -94,6 +136,12 @@ serve(async (req) => {
     const allPaths = await listAllPaths(supabase, userId)
     if (allPaths.length > 0) {
       await supabase.storage.from('vault-files').remove(allPaths)
+    }
+
+    // N-7 fix: also delete death certificate files from the death-certificates bucket
+    const certPaths = await listAllPathsFromBucket(supabase, 'death-certificates', userId)
+    if (certPaths.length > 0) {
+      await supabase.storage.from('death-certificates').remove(certPaths)
     }
 
     // 3. Anonymise audit log (GDPR compliance — keep records, remove PII)

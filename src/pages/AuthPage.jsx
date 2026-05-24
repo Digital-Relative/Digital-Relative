@@ -44,7 +44,11 @@ function AppleIcon() {
 function ForgotPasswordModal({ onClose }) {
   const [email, setEmail]   = useState('')
   const [sent, setSent]     = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]     = useState(false)
+  const [authAttempts, setAuthAttempts] = useState(0)
+  const [lockedUntil, setLockedUntil]   = useState(null)
+  const MAX_AUTH_ATTEMPTS = 5
+  const LOCKOUT_MS        = 5 * 60 * 1000  // 5 minutes
 
   async function handleReset() {
     if (!email) { toast.error('Enter your email address'); return }
@@ -137,6 +141,12 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    // B-1 fix: enforce lockout check before any sign-in attempt
+    if (mode === 'signin' && lockedUntil && Date.now() < lockedUntil) {
+      const mins = Math.ceil((lockedUntil - Date.now()) / 60000)
+      toast.error(`Too many attempts. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.`)
+      return
+    }
     if (mode === 'signup' && form.password !== form.confirmPassword) {
       toast.error('Passwords do not match'); return
     }
@@ -151,6 +161,8 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
           setFactorId(result.factorId)
           setMfaRequired(true)
         } else {
+          setAuthAttempts(0)
+          setLockedUntil(null)
           toast.success('Welcome back')
         }
       } else {
@@ -164,6 +176,16 @@ export default function AuthPage({ onBack, selectedPlan, onClearPlan }) {
       }
     } catch (err) {
       toast.error(err.message || 'Something went wrong')
+      // B-1 fix: increment attempt counter and enforce lockout on sign-in failures
+      if (mode === 'signin') {
+        setAuthAttempts(prev => {
+          const next = prev + 1
+          if (next >= MAX_AUTH_ATTEMPTS) {
+            setLockedUntil(Date.now() + LOCKOUT_MS)
+          }
+          return next
+        })
+      }
     } finally {
       setLoading(false)
     }

@@ -108,6 +108,23 @@ serve(async (req) => {
 
     // ── SUBMIT ──────────────────────────────────────────────────────────────
     if (body.action === 'submit') {
+      // N-2: Rate limit submit action per IP — max 5 per hour
+      const submitIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+      const { data: submitAttempts } = await supabase
+        .from('rate_limits')
+        .select('id')
+        .eq('identifier', `ea_submit:${submitIp}`)
+        .eq('action', 'emergency_submit')
+        .gt('window_start', new Date(Date.now() - 3_600_000).toISOString())
+      if ((submitAttempts?.length ?? 0) >= 5) {
+        return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers: corsHeaders })
+      }
+      await supabase.from('rate_limits').insert({
+        identifier:   `ea_submit:${submitIp}`,
+        action:       'emergency_submit',
+        window_start: new Date().toISOString(),
+      }).catch(() => {})
+
       // FIX EF-EA-1 & EF-EA-3: Verify JWT and extract caller's user ID
       const callerId = await verifyJwt(supabase, req.headers.get('Authorization') || '')
       if (!callerId) {
@@ -121,7 +138,7 @@ serve(async (req) => {
 
       const allowedTypes = Object.keys(TYPE_TO_EXT)
       if (!allowedTypes.includes(fileType)) throw new Error('Invalid file type. Please upload PDF, JPG, PNG, or WebP.')
-      if (certificateBase64.length > 35_000_000) throw new Error('File too large - maximum 25MB')
+      if (certificateBase64.length > 33_554_432) throw new Error('File too large - maximum 25MB')
 
       // FIX EF-EA-1: Verify caller's user ID matches the beneficiary's linked_user_id
       const { data: ben, error: benError } = await supabase

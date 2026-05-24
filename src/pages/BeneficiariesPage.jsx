@@ -9,7 +9,7 @@ import { validateEmail, validateName, sanitiseText } from '../lib/validation'
 const ACCESS_LEVELS = ['Full access', 'Read only', 'Specific categories only']
 
 function BenModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', relation: '', email: '', access_level: 'Full access', access_requirement: 'death_certificate' })
+  const [form, setForm] = useState({ name: '', relation: '', email: '', access_level: 'Full access', access_requirement: 'death_certificate', group_name: '' })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -36,6 +36,10 @@ function BenModal({ onClose, onSave }) {
           <div>
             <label className="label">Relationship</label>
             <input className="input" placeholder="e.g. Spouse, Son, Solicitor" value={form.relation} onChange={e => set('relation', e.target.value)} />
+            <label className="label" style={{ marginTop: 10 }}>Group (optional)</label>
+            <input className="input" placeholder="e.g. Family, Legal, Friends"
+              value={form.group_name || ''} onChange={e => set('group_name', e.target.value)}
+              maxLength={50} />
           </div>
           <div>
             <label className="label">Email address *</label>
@@ -130,6 +134,10 @@ function BenModal({ onClose, onSave }) {
 export default function BeneficiariesPage({ onNav }) {
   const { profile } = useAuth()
   const { beneficiaries, loading, addBeneficiary, removeBeneficiary } = useBeneficiaries()
+  const [groupFilter, setGroupFilter] = useState('all')
+
+  // Unique groups for filter tabs
+  const groups = ['all', ...new Set(beneficiaries.filter(b => b.group_name).map(b => b.group_name))]
   const [showModal, setShowModal] = useState(false)
 
   const planId = profile?.plan || 'free'
@@ -139,6 +147,7 @@ export default function BeneficiariesPage({ onNav }) {
   async function handleAdd(form) {
     await addBeneficiary(form)
     toast.success('Invite sent to ' + form.email)
+    supabase.from('audit_log').insert({ action: 'beneficiary_added' }).catch(() => {})
   }
 
   async function handleToggleExecutor(id, currentIsExecutor) {
@@ -170,6 +179,7 @@ export default function BeneficiariesPage({ onNav }) {
     if (!confirm(`Remove ${name} as a beneficiary?`)) return
     await removeBeneficiary(id)
     toast.success('Beneficiary removed')
+    supabase.from('audit_log').insert({ action: 'beneficiary_removed' }).catch(() => {})
   }
 
   return (
@@ -194,7 +204,29 @@ export default function BeneficiariesPage({ onNav }) {
 
       {/* List */}
       <div className="fade-up-3">
-        {loading ? (
+        {/* Group filter tabs */}
+      {groups.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+          {groups.map(g => (
+            <button key={g} onClick={() => setGroupFilter(g)} style={{
+              padding: '6px 14px', borderRadius: 99, fontSize: 12, cursor: 'pointer',
+              fontFamily: 'var(--sans)', border: '1px solid',
+              borderColor: groupFilter === g ? 'var(--gold-border)' : 'var(--border)',
+              background:  groupFilter === g ? 'var(--gold-dim)' : 'transparent',
+              color:       groupFilter === g ? 'var(--gold)' : 'var(--text-sub)',
+            }}>
+              {g === 'all' ? 'All' : g}
+              {g !== 'all' && (
+                <span style={{ marginLeft: 6, opacity: 0.7 }}>
+                  {beneficiaries.filter(b => b.group_name === g).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
           <div style={{ textAlign: 'center', padding: '40px' }}><span className="spinner" /></div>
         ) : beneficiaries.length === 0 ? (
           <div className="empty">
@@ -204,7 +236,7 @@ export default function BeneficiariesPage({ onNav }) {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {beneficiaries.map(b => (
+            {beneficiaries.filter(b => groupFilter === 'all' || b.group_name === groupFilter).map(b => (
               <div key={b.id} className="card-static" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
@@ -219,6 +251,11 @@ export default function BeneficiariesPage({ onNav }) {
                   <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
                     {b.relation && `${b.relation} · `}{b.email}
                   </div>
+                  {b.group_name && (
+                    <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 99, marginTop: 3, display: 'inline-block', background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', color: 'var(--gold)' }}>
+                      {b.group_name}
+                    </span>
+                  )}
                   <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>{b.access_level}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 2 }}>
                     {b.access_requirement === 'id_only' ? '🪪 ID only' : b.access_requirement === 'trust_only' ? '🤝 Trust only' : '📋 Death certificate required'}

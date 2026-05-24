@@ -121,3 +121,203 @@ create policy "Users can view own device log" on public.device_log
 -- ── MFA backup email codes ──
 alter table public.profiles
   add column if not exists mfa_backup_email text default null;
+
+-- ── Address field on vault_entries ──
+-- Added for UK address lookup feature
+alter table public.vault_entries
+  add column if not exists address text default null;
+
+-- ── Vault entry versioning ──
+-- Stores up to 3 previous versions per entry (encrypted fields only)
+create table if not exists public.vault_entry_versions (
+  id         uuid primary key default uuid_generate_v4(),
+  entry_id   uuid not null references public.vault_entries(id) on delete cascade,
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  username   text,
+  password   text,
+  notes      text,
+  address    text,
+  saved_at   timestamptz not null default now()
+);
+create index if not exists vev_entry_idx on public.vault_entry_versions(entry_id, saved_at desc);
+alter table public.vault_entry_versions
+  add column if not exists secure_content text default null;
+alter table public.vault_entry_versions enable row level security;
+create policy "Users can manage own entry versions" on public.vault_entry_versions
+  for all using (auth.uid() = user_id);
+
+-- ── Shared link access notifications ──
+alter table public.shared_links
+  add column if not exists notify_on_access boolean not null default false;
+
+-- ── Duress PIN ──
+-- A second PIN that shows a decoy vault with dummy entries
+-- Accessing with the duress PIN silently alerts the real owner and admin
+alter table public.profiles
+  add column if not exists duress_pin_set        boolean not null default false,
+  add column if not exists duress_key_verification text default null;
+
+-- Decoy vault entries - shown when duress PIN is entered
+create table if not exists public.decoy_entries (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  category   text not null default 'banking',
+  title      text not null,
+  username   text,   -- AES-256-GCM encrypted with duress key
+  password   text,   -- AES-256-GCM encrypted with duress key
+  notes      text,
+  created_at timestamptz not null default now()
+);
+alter table public.decoy_entries enable row level security;
+create policy "Users can manage own decoy entries" on public.decoy_entries
+  for all using (auth.uid() = user_id);
+
+-- ── Vault entry access tracking ──
+alter table public.vault_entries
+  add column if not exists last_accessed_at timestamptz default null,
+  add column if not exists last_accessed_by uuid references public.profiles(id) on delete set null;
+
+-- ── Vault PIN recovery codes ────────────────────────────────────────────
+-- 8 one-time codes that let a user recover vault access if they forget their PIN
+-- Each code is stored as an encrypted blob: AES-GCM(vaultPIN, derivedFromCode)
+-- The vault PIN is never stored plaintext anywhere
+create table if not exists public.vault_recovery_codes (
+  id           uuid primary key default uuid_generate_v4(),
+  user_id      uuid not null references public.profiles(id) on delete cascade,
+  code_index   smallint not null,        -- 0-7
+  encrypted_pin text not null,           -- AES-GCM(PIN, PBKDF2(code, userId))
+  used_at      timestamptz default null,
+  created_at   timestamptz not null default now(),
+  unique (user_id, code_index)
+);
+alter table public.vault_recovery_codes enable row level security;
+-- B-5 fix: split policies to prevent client corrupting encrypted_pin or used_at
+create policy "Users read own recovery codes" on public.vault_recovery_codes
+  for select using (auth.uid() = user_id);
+
+create policy "Users insert own recovery codes" on public.vault_recovery_codes
+  for insert with check (auth.uid() = user_id);
+
+create policy "Users update own recovery code fetch_count and used_at" on public.vault_recovery_codes
+  for update using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    -- encrypted_pin must not change (it contains the PIN encrypted with recovery code)
+    and encrypted_pin = (select encrypted_pin from public.vault_recovery_codes r where r.id = vault_recovery_codes.id)
+    and code_index    = (select code_index    from public.vault_recovery_codes r where r.id = vault_recovery_codes.id)
+  );
+
+create policy "Users delete own recovery codes" on public.vault_recovery_codes
+  for delete using (auth.uid() = user_id);
+
+-- ── Secure note content field ────────────────────────────────────────────
+alter table public.vault_entries
+  add column if not exists secure_content text default null;
+-- Encrypted with AES-256-GCM like username, password, notes
+
+-- ── Beneficiary groups ─────────────────────────────────────────────────────
+-- Groups let owners label beneficiaries (e.g. "Family", "Solicitor", "Friends")
+-- The group is display-only - access level and requirement are still per-beneficiary
+alter table public.beneficiaries
+  add column if not exists group_name text default null
+  check (char_length(group_name) <= 50);
+
+-- ── Phone number for SMS reminders ──────────────────────────────────────────
+alter table public.profiles
+  add column if not exists phone_number text default null
+  check (phone_number is null or phone_number ~ '^\\+[1-9]\\d{7,14}$');
+
+-- Allow user to update their own phone number (within safeFields)
+-- No additional RLS needed - phone_number is not security-sensitive
+
+-- ── Recovery code access rate limiting ──────────────────────────────────────
+-- Track how many times recovery code blobs are fetched to detect exfiltration
+alter table public.vault_recovery_codes
+  add column if not exists fetch_count integer not null default 0;
+
+-- Split RLS policies: allow SELECT only, with no INSERT via RLS (use service role)
+-- The fetch_count increment is handled by a trigger on SELECT is not possible in Postgres.
+-- Instead: client increments fetch_count on read via a separate update call.
+-- Real protection: the blobs are only useful to someone who also has the Supabase session.
+
+alter table public.vault_entry_versions
+  add column if not exists secure_content text default null;
+
+-- ── Version history — add title/category for complete snapshots ─────────────
+alter table public.vault_entry_versions
+  add column if not exists title    text default null,
+  add column if not exists category text default null;
+
+-- ── Push notification subscriptions ─────────────────────────────────────────
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  endpoint   text not null,
+  p256dh     text not null,
+  auth       text not null,
+  active     boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
+alter table public.push_subscriptions enable row level security;
+create policy "Users manage own push subscriptions" on public.push_subscriptions
+  for all using (auth.uid() = user_id);
+create index if not exists push_subscriptions_user_id_idx on public.push_subscriptions(user_id) where active = true;
+
+-- ── Executor task progress (server-side persistence) ─────────────────────────
+-- Keyed by beneficiary ID so it persists across sessions and devices
+-- Only beneficiary-access tokens can write this (RLS: no auth.uid() - uses service role)
+create table if not exists public.executor_progress (
+  id             uuid primary key default uuid_generate_v4(),
+  beneficiary_id uuid not null references public.beneficiaries(id) on delete cascade,
+  task_statuses  jsonb not null default '{}',   -- { [taskId]: 'pending'|'inProgress'|'done'|'notRequired' }
+  task_notes     jsonb not null default '{}',   -- { [taskId]: 'note text' }
+  updated_at     timestamptz not null default now(),
+  unique (beneficiary_id)
+);
+-- RLS: deny all direct access - managed via beneficiary-access edge function only
+alter table public.executor_progress enable row level security;
+
+-- ── WebAuthn passkey credentials ─────────────────────────────────────────────
+create table if not exists public.webauthn_credentials (
+  id              uuid primary key default uuid_generate_v4(),
+  user_id         uuid not null references public.profiles(id) on delete cascade,
+  credential_id   text not null unique,        -- base64url credential ID from authenticator
+  public_key      text not null,               -- COSE-encoded public key (base64)
+  device_name     text not null default 'Security key',
+  sign_count      bigint not null default 0,   -- replay protection
+  created_at      timestamptz not null default now(),
+  last_used_at    timestamptz
+);
+alter table public.webauthn_credentials enable row level security;
+create policy "Users manage own WebAuthn credentials" on public.webauthn_credentials
+  for all using (auth.uid() = user_id);
+create index if not exists webauthn_creds_user_idx on public.webauthn_credentials(user_id);
+
+-- ── Structured data fields per vault entry category ─────────────────────────
+alter table public.vault_entries
+  add column if not exists structured_data jsonb default null;
+-- Stored as plaintext JSON - not encrypted (reference data like sort codes)
+-- Sensitive values (account numbers) should go in username/password fields instead
+
+-- ── WebAuthn challenges (server-generated, 5-min TTL) ────────────────────────
+create table if not exists public.webauthn_challenges (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  challenge  text not null,
+  purpose    text not null check (purpose in ('registration', 'assertion')),
+  expires_at timestamptz not null,
+  unique (user_id, purpose)
+);
+-- No RLS - service role only (edge function handles all access)
+alter table public.webauthn_challenges enable row level security;
+
+-- ── RLS policies for executor_progress ──────────────────────────────────────
+-- D-1 fix: no client-facing policy — beneficiary portal has no Supabase auth session
+-- All executor_progress reads/writes go through edge functions (service role)
+-- The beneficiary-access edge function returns beneficiary data; progress is co-located.
+-- Direct client access is impossible without a Supabase JWT (beneficiaries use tokens not sessions).
+
+-- C-3 fix: token expiry for emergency access tokens
+alter table public.beneficiaries
+  add column if not exists token_expires_at timestamptz default null;

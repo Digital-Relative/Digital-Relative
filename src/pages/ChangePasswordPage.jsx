@@ -113,9 +113,11 @@ export default function ChangePasswordPage({ onBack }) {
       const reencrypted = []
       for (const entry of decrypted) {
         const enc = await encryptEntry({
-          username: entry.username || '',
-          password: entry.password || '',
-          notes:    entry.notes    || '',
+          username:       entry.username       || '',
+          password:       entry.password       || '',
+          notes:          entry.notes          || '',
+          secure_content: entry.secure_content || null,
+          address:        entry.address        || null,  // NEW-6: now encrypted
         })
         reencrypted.push({ id: entry.id, ...enc })
         setProgress(p => ({ ...p, done: p.done + 1 }))
@@ -155,16 +157,20 @@ export default function ChangePasswordPage({ onBack }) {
       for (const entry of reencrypted) {
         const { id, ...updates } = entry
         await supabase.from('vault_entries').update({
-          username:   updates.username,
-          password:   updates.password,
-          notes:      updates.notes,
-          _encrypted: true,
+          username:       updates.username,
+          password:       updates.password,
+          notes:          updates.notes,
+          secure_content: updates.secure_content,
+          address:        updates.address,  // NEW-6: address is now encrypted
+          _encrypted:     true,
         }).eq('id', id).eq('user_id', user.id)
         setProgress(p => ({ ...p, done: p.done + 1 }))
       }
 
       // Session key is already set to newKey from step 5
       toast.success('Vault re-encrypted with new PIN')
+      // NEW-4 fix: invalidate recovery codes after PIN change (they encrypt the old PIN)
+      await supabase.from('vault_recovery_codes').delete().eq('user_id', user.id).catch(() => {})
       setStep('done')
     } catch (err) {
       toast.error(err.message || 'Re-encryption failed - your vault is unchanged')
@@ -277,6 +283,9 @@ export default function ChangePasswordPage({ onBack }) {
           <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 8 }}>
             Vault re-encrypted
           </h2>
+          <div style={{ padding: '10px 14px', background: 'rgba(224,82,82,0.08)', border: '1px solid rgba(224,82,82,0.2)', borderRadius: 8, fontSize: 13, color: 'var(--cream-dim)', marginBottom: 16, lineHeight: 1.6, textAlign: 'left' }}>
+            <strong>Action required:</strong> Your vault PIN recovery codes have been invalidated because they encrypted your old PIN. Go to Settings and generate new recovery codes now.
+          </div>
           <p style={{ fontSize: 14, color: 'var(--text-sub)', marginBottom: 24, lineHeight: 1.6 }}>
             All your vault entries have been successfully re-encrypted with your new PIN.
           </p>

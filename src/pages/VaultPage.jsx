@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { useVault } from '../hooks/useVault'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES } from '../lib/categories'
 import AddressLookup from '../components/AddressLookup'
+import ImportCSV from '../components/ImportCSV'
 import { PLANS } from '../lib/stripe'
 import { searchCompanies, UK_COMPANIES } from '../lib/companies'
 import { validateVaultTitle } from '../lib/validation'
@@ -98,7 +100,7 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
   const isEdit = !!entry?.id
   const [form, setForm] = useState(entry || {
     address: '',
-    category: 'banking', title: '', username: '', password: '', notes: '',
+    category: 'banking', title: '', username: '', password: '', notes: '', secure_content: '', structured_data: {},
     expiry_date: '', expiry_reminder_days: [30],
   })
   const [showPass, setShowPass] = useState(false)
@@ -127,6 +129,36 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
     })
   }
 
+  async function fetchVersions(entryId) {
+    const { data } = await supabase
+      .from('vault_entry_versions')
+      .select('id, saved_at, username, password, notes, secure_content')
+      .eq('entry_id', entryId)
+      .order('saved_at', { ascending: false })
+      .limit(3)
+    if (data) setVersionsMap(v => ({ ...v, [entryId]: data }))
+  }
+
+  async function restoreVersion(entryId, version) {
+    if (!confirm('Restore this version? The current version will be saved as a previous version first.')) return
+    setRestoringId(entryId)
+    try {
+      // updateEntry saves a version before overwriting, so restore is just an update
+      await updateEntry(entryId, {
+        username:       version.username,
+        password:       version.password,
+        notes:          version.notes,
+        secure_content: version.secure_content || null,
+      })
+      await fetchVersions(entryId)
+      toast.success('Version restored')
+    } catch {
+      toast.error('Could not restore version')
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
   async function handleSave() {
     const titleErr = validateVaultTitle(form.title)
     if (titleErr) { toast.error(titleErr); return }
@@ -149,6 +181,7 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
     try {
       // Strip display-only fields before saving to DB
       const { _bereavePhone, _bereaveUrl, _bereaveNote, ...saveForm } = form
+      // secure_content passes through in saveForm - it's encrypted server-side like notes
       // Convert empty string to null for the date column
       const finalForm = { ...saveForm, expiry_date: rawDate || null }
       await onSave(finalForm)
@@ -215,12 +248,31 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
             </select>
           </div>
 
-          {/* Username */}
+          {/* Username / Password - hidden for secure notes */}
+          {form.category !== 'secure_note' && (
           <div>
             <label className="label">Username / email / account number</label>
             <input className="input" placeholder="e.g. john@email.com or account: 12345678"
               value={form.username} onChange={e => set('username', e.target.value)} />
           </div>
+          )}
+
+          {/* Structured fields per category */}
+          {STRUCTURED_FIELDS[form.category] && (
+            <>
+              {STRUCTURED_FIELDS[form.category].map(field => (
+                <div key={field.key}>
+                  <label className="label">{field.label}</label>
+                  <input className="input" placeholder={field.placeholder}
+                    value={(form.structured_data || {})[field.key] || ''}
+                    onChange={e => set('structured_data', { ...(form.structured_data || {}), [field.key]: e.target.value })} />
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', lineHeight: 1.6, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                These reference fields are stored without encryption. For highly sensitive data such as full account numbers, passwords, or PINs, use the Password field above which is encrypted with your vault key.
+              </div>
+            </>
+          )}
 
           {/* Address lookup - shown for relevant categories */}
           {['property', 'medical', 'legal', 'utilities', 'banking', 'insurance', 'other'].includes(form.category) && (
@@ -259,6 +311,21 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
               placeholder="Sort code, account number, security questions, phone number, policy number, important details…"
               value={form.notes} onChange={e => set('notes', e.target.value)} />
           </div>
+
+          {/* Secure note content - full-width encrypted text for secure_note category */}
+          {form.category === 'secure_note' && (
+            <div>
+              <label className="label">Secure note content</label>
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 6 }}>
+                Encrypted with your vault key. Use this for passport numbers, NI numbers, will location, insurance policy details, PIN codes, or anything sensitive.
+              </div>
+              <textarea className="input" rows={10}
+                placeholder="Enter your secure note content here..."
+                value={form.secure_content || ''}
+                onChange={e => set('secure_content', e.target.value)}
+                style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.7 }} />
+            </div>
+          )}
 
           {/* Expiry date */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -321,13 +388,90 @@ function EntryModal({ entry, onClose, onSave, onDelete }) {
   )
 }
 
+// Structured fields shown per category
+const STRUCTURED_FIELDS = {
+  banking: [
+    { key: 'sort_code',       label: 'Sort code',        placeholder: 'e.g. 20-00-00' },
+    { key: 'account_number',  label: 'Account number',   placeholder: 'e.g. 12345678' },
+    { key: 'iban',            label: 'IBAN (optional)',  placeholder: 'e.g. GB29NWBK...' },
+  ],
+  investments: [
+    { key: 'account_ref',     label: 'Account / policy reference', placeholder: 'e.g. HL-123456' },
+    { key: 'provider',        label: 'Provider',         placeholder: 'e.g. Hargreaves Lansdown' },
+  ],
+  insurance: [
+    { key: 'policy_number',   label: 'Policy number',    placeholder: 'e.g. POL-1234567' },
+    { key: 'sum_assured',     label: 'Sum assured',      placeholder: 'e.g. £250,000' },
+    { key: 'renewal_date',    label: 'Renewal date',     placeholder: 'e.g. 01/03/2026' },
+  ],
+  government: [
+    { key: 'ni_number',       label: 'National Insurance number', placeholder: 'e.g. QQ 12 34 56 A' },
+    { key: 'reference',       label: 'Reference number', placeholder: 'e.g. UTR, NHR...' },
+  ],
+  medical: [
+    { key: 'nhs_number',      label: 'NHS number',       placeholder: 'e.g. 123 456 7890' },
+    { key: 'gp_surgery',      label: 'GP surgery',       placeholder: 'e.g. Elm Street Surgery' },
+  ],
+  property: [
+    { key: 'title_number',    label: 'Land Registry title number', placeholder: 'e.g. GR123456' },
+    { key: 'mortgage_lender', label: 'Mortgage lender',  placeholder: 'e.g. Halifax, Nationwide' },
+    { key: 'mortgage_ref',    label: 'Mortgage reference', placeholder: 'e.g. MOC-1234567' },
+  ],
+  legal: [
+    { key: 'solicitor',       label: 'Solicitor / firm', placeholder: 'e.g. Smith & Co Solicitors' },
+    { key: 'reference',       label: 'File reference',   placeholder: 'e.g. REF/2024/001' },
+  ],
+}
+
 export default function VaultPage({ onNav }) {
-  const { profile } = useAuth()
-  const { entries, loading, addEntry, updateEntry, deleteEntry } = useVault()
+  // Check if duress mode is active - show decoy vault instead of real entries
+  const isDuressMode = sessionStorage.getItem('dr_duress_active') === '1'
+  const { user, profile } = useAuth()
+  const { entries: realEntries, loading: realLoading, addEntry, updateEntry, deleteEntry } = useVault()
+  const [decoyEntries, setDecoyEntries] = useState([])
+  const [decoyLoading, setDecoyLoading] = useState(false)
+
+  // Load decoy entries when duress mode is active
+  useEffect(() => {
+    if (!isDuressMode || !user?.id) return
+    setDecoyLoading(true)
+    supabase.from('decoy_entries').select('*').eq('user_id', user.id)
+      .then(({ data }) => { setDecoyEntries(data || []); setDecoyLoading(false) })
+      .catch(() => setDecoyLoading(false))
+  }, [isDuressMode, user?.id])
+
+  // Mark body when vault is unlocked so Crisp hides itself (HIGH-5 fix)
+  useEffect(() => {
+    document.body.dataset.vaultOpen = 'true'
+    return () => { document.body.dataset.vaultOpen = 'false' }
+  }, [])
+
+  // Read wizard prefill from sessionStorage - set by Dashboard complete-my-vault flow
+  useEffect(() => {
+    const raw = sessionStorage.getItem('dr_vault_prefill')
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      sessionStorage.removeItem('dr_vault_prefill')
+      // LOW-1: strict schema validation - only accept known safe string fields
+      const title    = typeof parsed?.title    === 'string' ? parsed.title.slice(0, 200)    : ''
+      const category = typeof parsed?.category === 'string' && ['banking','email','investments','property','insurance','subscriptions','government','social','utilities','medical','legal','secure_note','other'].includes(parsed.category) ? parsed.category : 'other'
+      if (!atLimit) {
+        setForm(f => ({ ...f, title, category }))
+        setModal('new')
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const entries = isDuressMode ? decoyEntries : realEntries
+  const loading = isDuressMode ? decoyLoading : realLoading
   const [filter, setFilter] = useState('all')
   const [search, setSearch]  = useState('')
   const [modal, setModal]    = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [versionsMap, setVersionsMap] = useState({})
+  const [restoringId, setRestoringId] = useState(null)
   const [showExpired, setShowExpired] = useState(false)
   const [revealEntry, setRevealEntry] = useState(null)
   const [shareEntry, setShareEntry]   = useState(null)
@@ -351,13 +495,39 @@ export default function VaultPage({ onNav }) {
   })
 
   async function handleSave(form) {
-    if (modal === 'new') await addEntry(form)
-    else await updateEntry(modal.id, form)
+    if (modal === 'new') {
+      await addEntry(form)
+      supabase.from('audit_log').insert({ user_id: user.id, action: 'vault_entry_created', metadata: { category: form.category } }).catch(() => {})
+    } else {
+      // Save current version before overwriting (keep max 3)
+      const current = entries.find(e => e.id === modal.id)
+      if (current) {
+        await supabase.from('vault_entry_versions').insert({
+          entry_id: modal.id, user_id: user.id,
+          title:    current.title,
+          category: current.category,
+          username: current.username, password: current.password,
+          notes: current.notes, address: current.address,
+          secure_content: current.secure_content || null,
+        })
+        // Prune to 3 versions: fetch oldest beyond limit and delete
+        const { data: versions } = await supabase
+          .from('vault_entry_versions').select('id, saved_at')
+          .eq('entry_id', modal.id).order('saved_at', { ascending: false })
+        if (versions && versions.length > 3) {
+          const toDelete = versions.slice(3).map(v => v.id)
+          await supabase.from('vault_entry_versions').delete().in('id', toDelete)
+        }
+      }
+      await updateEntry(modal.id, form)
+      supabase.from('audit_log').insert({ user_id: user.id, action: 'vault_entry_updated', metadata: { category: form.category } }).catch(() => {})
+    }
     toast.success(modal === 'new' ? 'Entry added' : 'Entry updated')
   }
 
   async function handleDelete(id) {
     await deleteEntry(id)
+    supabase.from('audit_log').insert({ user_id: user.id, action: 'vault_entry_deleted' }).catch(() => {})
     toast.success('Entry deleted')
   }
 
@@ -368,9 +538,16 @@ export default function VaultPage({ onNav }) {
           <h1 className="page-title">My Vault</h1>
           <p className="page-sub">{entries.length} {entries.length === 1 ? 'entry' : 'entries'} · end-to-end encrypted</p>
         </div>
-        <button className="btn-primary" onClick={() => atLimit ? onNav('plan') : setModal('new')}>
-          {atLimit ? 'Upgrade to add more' : '+ Add entry'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {!atLimit && (
+            <button className="btn-ghost" onClick={() => setShowImport(true)} style={{ fontSize: 13 }}>
+              ⬆ Import CSV
+            </button>
+          )}
+          <button className="btn-primary" onClick={() => atLimit ? onNav('plan') : setModal('new')}>
+            {atLimit ? 'Upgrade to add more' : '+ Add entry'}
+          </button>
+        </div>
       </div>
 
       {/* Expiring alert banner */}
@@ -492,6 +669,46 @@ export default function VaultPage({ onNav }) {
                           <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.7 }}>{e.address}</div>
                         </div>
                       )}
+
+                      {/* Structured fields display */}
+                      {e.structured_data && Object.keys(e.structured_data).filter(k => e.structured_data[k]).length > 0 && (
+                        <div style={{ marginBottom: 14 }}>
+                          {(STRUCTURED_FIELDS[e.category] || []).map(field => e.structured_data[field.key] ? (
+                            <div key={field.key} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                              <span style={{ fontSize: 12, color: 'var(--text-sub)', minWidth: 140 }}>{field.label}</span>
+                              <span style={{ fontSize: 13, color: 'var(--cream-dim)', fontFamily: 'monospace' }}>{e.structured_data[field.key]}</span>
+                            </div>
+                          ) : null)}
+                        </div>
+                      )}
+
+                      {e.secure_content && (
+                        <div style={{ marginBottom: 14 }}>
+                          <div className="label" style={{ marginBottom: 4 }}>Secure note</div>
+                          <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.8, fontFamily: 'monospace', whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.03)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>{e.secure_content}</div>
+                        </div>
+                      )}
+
+                      {/* Version history */}
+                      {(versionsMap[e.id] || []).length > 0 && (
+                        <div style={{ marginBottom: 14 }}>
+                          <div className="label" style={{ marginBottom: 8 }}>Previous versions</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {(versionsMap[e.id] || []).map((v, i) => (
+                              <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                                  Version {(versions[e.id] || []).length - i} - {new Date(v.saved_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
+                                <button onClick={() => restoreVersion(e.id, v)} disabled={restoringId === e.id} style={{
+                                  background: 'transparent', border: '1px solid var(--border-md)',
+                                  borderRadius: 4, padding: '3px 10px', fontSize: 11,
+                                  color: 'var(--gold)', cursor: 'pointer', fontFamily: 'var(--sans)',
+                                }}>Restore</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {/* Bereavement contact section - shown if company is in our database */}
                       {(() => {
                         const company = UK_COMPANIES.find(c =>
@@ -583,6 +800,24 @@ export default function VaultPage({ onNav }) {
           itemType="entry"
           onClose={() => setShareEntry(null)}
         />
+      )}
+
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)}>
+          <div className="modal" style={{ width: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <ImportCSV
+              onImport={async (row) => {
+                await addEntry({
+                  ...row,
+                  category: row.category || 'other',
+                })
+              }}
+              onClose={() => { setShowImport(false); }}
+              planEntryLimit={plan.entryLimit}
+              currentCount={entries.length}
+            />
+          </div>
+        </div>
       )}
 
       {(modal === 'new' || (modal && modal.id)) && (

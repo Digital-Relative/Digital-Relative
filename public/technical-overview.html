@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Technical Overview — Digital Relative</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 48px 24px; color: #1a2a3a; line-height: 1.75; background: #faf9f6; }
+  h1 { font-family: 'Georgia', serif; font-size: 2rem; color: #0d1b2a; margin-bottom: 4px; }
+  h2 { font-size: 1.1rem; color: #0d1b2a; margin-top: 40px; border-bottom: 2px solid #c9a84c; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  h3 { font-size: 1rem; color: #0d1b2a; margin-top: 24px; font-weight: 600; }
+  .meta { color: #7a93aa; font-size: 0.88rem; margin-bottom: 36px; }
+  a { color: #c9a84c; }
+  .logo { font-size: 1.4rem; font-weight: bold; color: #c9a84c; margin-bottom: 32px; display: block; text-decoration: none; font-family: 'Georgia', serif; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .card { background: #f0ece2; border-radius: 8px; padding: 16px 18px; }
+  .card h4 { margin: 0 0 6px; font-size: 0.9rem; color: #0d1b2a; }
+  .card p { margin: 0; font-size: 0.88rem; color: #4a5568; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 600; margin-right: 4px; }
+  .green { background: #d4edda; color: #155724; }
+  .blue  { background: #d1ecf1; color: #0c5460; }
+  .gold  { background: #fff3cd; color: #856404; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.88rem; }
+  td, th { border: 1px solid #e0d8cc; padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: #f0ece2; font-weight: 600; }
+  code { background: #eee; padding: 1px 6px; border-radius: 4px; font-size: 0.88em; font-family: monospace; }
+  .callout { background: #f0ece2; border-left: 4px solid #c9a84c; padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 0.9rem; margin: 16px 0; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="/" class="logo">Digital Relative</a>
+<h1>Technical Overview</h1>
+<p class="meta">Digital Relative v99 &middot; Confidential &middot; 24 May 2026</p>
+
+<div class="callout">
+  This document provides a technical overview of the Digital Relative platform for due diligence, security review, partnership evaluation, and pen test scoping purposes. It is subject to the Non-Disclosure Agreement signed between the parties.
+</div>
+
+<h2>1. Service summary</h2>
+<p>Digital Relative is a zero-knowledge digital legacy vault for UK families. Users store encrypted account credentials, secure notes, and personal documents for access by nominated beneficiaries in the event of death or incapacity. The service includes a configurable check-in system (dead man's switch), Onfido-verified emergency access, and a beneficiary portal with guided estate administration tools.</p>
+
+<div class="grid">
+  <div class="card"><h4>Live URL</h4><p>digitalrelative.co.uk</p></div>
+  <div class="card"><h4>Data location</h4><p>UK (Supabase London, AWS eu-west-2)</p></div>
+  <div class="card"><h4>Technology stack</h4><p>React 19, Vite, Supabase, Deno edge functions, Vercel</p></div>
+  <div class="card"><h4>Security rounds</h4><p>12 external audits, 0 critical open issues</p></div>
+</div>
+
+<h2>2. Architecture</h2>
+
+<h3>2.1 Zero-knowledge encryption</h3>
+<p>All vault data is encrypted client-side before transmission. The server never holds encryption keys.</p>
+<table>
+  <tr><th>Parameter</th><th>Value</th></tr>
+  <tr><td>Algorithm</td><td>AES-256-GCM</td></tr>
+  <tr><td>Key derivation</td><td>PBKDF2-SHA256, 600,000 iterations, random 128-bit per-user salt</td></tr>
+  <tr><td>Key source</td><td>User's vault PIN only — never the login password</td></tr>
+  <tr><td>IV</td><td>Random 96-bit per encryption operation</td></tr>
+  <tr><td>Authentication tag</td><td>128-bit GCM tag (tamper detection)</td></tr>
+  <tr><td>Key storage</td><td>JavaScript memory only — never persisted to server, localStorage, or sessionStorage</td></tr>
+  <tr><td>Trusted device optional PIN storage</td><td>PIN encrypted with device-specific AES-256-GCM key derived from PBKDF2(deviceToken + userId, 100k iterations) stored in localStorage</td></tr>
+  <tr><td>Recovery codes</td><td>8 one-time codes, each independently encrypts PIN using PBKDF2(code, userId, 100k iterations)</td></tr>
+</table>
+
+<h3>2.2 Frontend</h3>
+<table>
+  <tr><th>Component</th><th>Detail</th></tr>
+  <tr><td>Framework</td><td>React 19 + Vite 8, JSX (no TypeScript)</td></tr>
+  <tr><td>Routing</td><td>Custom history API (pushState/popState), no react-router</td></tr>
+  <tr><td>State management</td><td>React context (AuthContext) + component state</td></tr>
+  <tr><td>CSS</td><td>Custom CSS properties, no Tailwind</td></tr>
+  <tr><td>Session security</td><td>30-minute inactivity auto-lock, 8-hour absolute session limit, trusted device optional</td></tr>
+  <tr><td>Content Security Policy</td><td>Strict CSP via Vercel headers: no unsafe-eval, allowlisted domains only</td></tr>
+  <tr><td>Hosting</td><td>Vercel (CDN, static files only — no personal data on Vercel)</td></tr>
+</table>
+
+<h3>2.3 Backend</h3>
+<table>
+  <tr><th>Component</th><th>Detail</th></tr>
+  <tr><td>Database</td><td>Supabase Postgres, EU London (AWS eu-west-2)</td></tr>
+  <tr><td>Authentication</td><td>Supabase Auth — email/password, Google OAuth, Apple OAuth</td></tr>
+  <tr><td>File storage</td><td>Supabase Storage — two buckets: vault-files (documents), death-certificates (Onfido)</td></tr>
+  <tr><td>Edge functions</td><td>15 Deno functions, all using service role key for sensitive operations</td></tr>
+  <tr><td>Cron job</td><td>checkin-scheduler runs daily — handles reminders, dead man's switch, expiry emails, monthly health emails</td></tr>
+</table>
+
+<h3>2.4 Edge functions</h3>
+<table>
+  <tr><th>Function</th><th>Purpose</th><th>Auth</th></tr>
+  <tr><td><code>beneficiary-access</code></td><td>Serves vault data to beneficiaries via token lookup</td><td>Service role, token validated</td></tr>
+  <tr><td><code>emergency-access</code></td><td>Processes death certificate submissions, 48h hold, owner notification</td><td>JWT + service role + Onfido HMAC</td></tr>
+  <tr><td><code>checkin-scheduler</code></td><td>Daily cron: reminders, switch trigger, expiry, monthly health emails</td><td>Cron secret + bearer token</td></tr>
+  <tr><td><code>mfa-email</code></td><td>Email OTP generation and verification, MFA unenrol</td><td>JWT + service role</td></tr>
+  <tr><td><code>send-beneficiary-invite</code></td><td>Sends beneficiary invite email + owner notification</td><td>JWT, ownership validated</td></tr>
+  <tr><td><code>verify-identity</code></td><td>Onfido webhook receiver for ID verification</td><td>HMAC signature required</td></tr>
+  <tr><td><code>shared-link-access</code></td><td>Serves shared link content (PBKDF2 PIN, optimistic lock)</td><td>Token + optional PIN</td></tr>
+  <tr><td><code>stripe-webhook</code></td><td>Processes Stripe payment events</td><td>HMAC-SHA256, 5-min replay window</td></tr>
+  <tr><td><code>delete-account</code></td><td>GDPR-compliant account deletion (vault-files + death-certificates buckets)</td><td>JWT, re-auth required in UI</td></tr>
+  <tr><td><code>device-log</code></td><td>Device fingerprint logging, new device email alert</td><td>JWT</td></tr>
+  <tr><td><code>duress-alert</code></td><td>Silent alert to owner and admin when duress PIN used</td><td>JWT</td></tr>
+  <tr><td><code>create-checkout</code>, <code>create-portal</code></td><td>Stripe checkout and billing portal session creation</td><td>JWT</td></tr>
+  <tr><td><code>couples-invite</code></td><td>Couples vault invitation</td><td>JWT</td></tr>
+  <tr><td><code>handle-separation</code></td><td>Couples vault separation with null payer guard</td><td>JWT</td></tr>
+</table>
+
+<h2>3. Database schema</h2>
+<h3>3.1 Key tables</h3>
+<table>
+  <tr><th>Table</th><th>Purpose</th><th>RLS</th></tr>
+  <tr><td><code>profiles</code></td><td>User profile, plan, MFA flags, phone, language</td><td>WITH CHECK restricts plan, stripe IDs, mfa_enrolled, mfa_email_fallback</td></tr>
+  <tr><td><code>vault_entries</code></td><td>Encrypted account credentials, secure notes</td><td>User manages own rows only</td></tr>
+  <tr><td><code>vault_entry_versions</code></td><td>Up to 3 previous versions per entry</td><td>User manages own rows</td></tr>
+  <tr><td><code>vault_recovery_codes</code></td><td>8 encrypted one-time PIN recovery codes per user</td><td>User manages own rows; fetch_count tracked</td></tr>
+  <tr><td><code>beneficiaries</code></td><td>Named beneficiaries with access level, requirement, group</td><td>User manages own rows</td></tr>
+  <tr><td><code>vault_documents</code></td><td>Document metadata (file stored in Supabase Storage)</td><td>User manages own rows</td></tr>
+  <tr><td><code>access_requests</code></td><td>Emergency access submissions with 48h hold</td><td>Service role only for writes</td></tr>
+  <tr><td><code>shared_links</code></td><td>Encrypted shareable links with PIN, expiry, view count</td><td>User manages own rows</td></tr>
+  <tr><td><code>audit_log</code></td><td>Security event log (sign-in, vault changes, MFA events)</td><td>User SELECT own rows; service role INSERT</td></tr>
+  <tr><td><code>device_log</code></td><td>Sign-in device fingerprints</td><td>User SELECT own rows; service role INSERT</td></tr>
+  <tr><td><code>rate_limits</code></td><td>IP-based rate limiting with TTL cleanup trigger</td><td>Deny all (service role only)</td></tr>
+  <tr><td><code>decoy_entries</code></td><td>Duress PIN decoy vault contents</td><td>User manages own rows</td></tr>
+</table>
+
+<h2>4. Security architecture</h2>
+
+<h3>4.1 Completed security audit rounds</h3>
+<p><span class="badge green">12 rounds</span> of external static code security review completed. No critical vulnerabilities remain open.</p>
+<table>
+  <tr><th>Area</th><th>Status</th></tr>
+  <tr><td>CORS — all edge functions use origin allowlist, never wildcard</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>JWT verification on all authenticated edge functions</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>Stripe HMAC-SHA256, constant-time, 5-min replay window</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>Onfido HMAC — absent signature unconditionally rejected</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>Profiles RLS WITH CHECK: plan, stripe IDs, MFA flags protected</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>All user-controlled content encoded with he() in email templates</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>No raw SHA-256 for security-sensitive ops (PBKDF2 used throughout)</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>CSP — no unsafe-eval, strict allowlist including frame-src</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>Secrets inside handlers only (no module-level secrets)</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>fetchProfile uses named columns (no select('*'))</td><td><span class="badge green">Confirmed</span></td></tr>
+  <tr><td>Account deletion requires password re-authentication</td><td><span class="badge green">Confirmed</span></td></tr>
+</table>
+
+<h3>4.2 Multi-factor authentication</h3>
+<ul>
+  <li>Email/password users: TOTP (authenticator app) or email OTP fallback</li>
+  <li>OAuth users (Google/Apple): bypass MFA — authentication delegated to provider</li>
+  <li>MFA unenrolment requires valid email OTP with 5-attempt lockout (service role, no AAL2 bypass)</li>
+  <li>Lost device: email OTP verification then service-role TOTP deletion</li>
+</ul>
+
+<h3>4.3 Emergency access</h3>
+<ul>
+  <li>Mandatory 48-hour hold for all paths (death certificate, ID only, admin manual)</li>
+  <li>Owner notified with deny button during hold period</li>
+  <li>Onfido death certificate verification with magic-byte file validation</li>
+  <li>Per-IP rate limiting on submission (5 per hour)</li>
+  <li>Access requirement enforced per-beneficiary (death_certificate / id_only / trust_only)</li>
+  <li>grantVaultAccess filters by access_requirement — trust_only excluded</li>
+</ul>
+
+<h3>4.4 Additional security features</h3>
+<ul>
+  <li><strong>Duress PIN</strong> — secondary PIN shows decoy vault; silently alerts owner and admin</li>
+  <li><strong>Trusted device</strong> — optional per-device PIN storage using device-derived encryption key</li>
+  <li><strong>8-hour absolute session</strong> — applies to all users including trusted devices</li>
+  <li><strong>Device log</strong> — new device email alerts via Cloudflare geo headers</li>
+  <li><strong>Shared link security</strong> — PBKDF2 PIN, optimistic lock on attempts, owner notification on access</li>
+  <li><strong>Geographic access alerts</strong> — owner notified if vault accessed from outside UK</li>
+  <li><strong>Vault entry versioning</strong> — 3 previous versions including title, category, and all encrypted fields</li>
+  <li><strong>Recovery codes</strong> — 8 one-time PBKDF2-encrypted PIN recovery codes with fetch_count exfiltration detection</li>
+</ul>
+
+<h2>5. Third-party integrations</h2>
+<table>
+  <tr><th>Service</th><th>Purpose</th><th>Data sent</th><th>Location</th></tr>
+  <tr><td>Supabase</td><td>Primary infrastructure</td><td>All application data</td><td>UK London</td></tr>
+  <tr><td>Stripe Payments UK Ltd</td><td>Subscription billing</td><td>Payment intent, customer ID</td><td>UK (FCA-authorised)</td></tr>
+  <tr><td>Onfido</td><td>Identity verification, death certificates</td><td>Photo ID, death certificate image</td><td>UK</td></tr>
+  <tr><td>Resend</td><td>Transactional email</td><td>Recipient email, notification text (no vault data)</td><td>UK/EU</td></tr>
+  <tr><td>GetAddress.io</td><td>UK postcode lookup</td><td>Postcode only</td><td>UK</td></tr>
+  <tr><td>Twilio (optional)</td><td>SMS check-in reminders</td><td>Phone number, plain-text reminder</td><td>US (only if user provides number)</td></tr>
+  <tr><td>Cloudflare</td><td>CDN for static files</td><td>No personal data</td><td>Global CDN</td></tr>
+</table>
+
+<h2>6. Compliance</h2>
+<table>
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>UK GDPR / Data Protection Act 2018</td><td><span class="badge green">Compliant</span></td></tr>
+  <tr><td>ICO registration</td><td><span class="badge gold">Pending — to be completed before first paid user</span></td></tr>
+  <tr><td>UK data storage</td><td><span class="badge green">All vault data in UK (Supabase London)</span></td></tr>
+  <tr><td>GDPR export (Article 20)</td><td><span class="badge green">Available — Settings &rarr; Export my data (JSON + SHA-256 integrity hash)</span></td></tr>
+  <tr><td>Right to erasure (Article 17)</td><td><span class="badge green">Account deletion clears vault-files and death-certificates buckets, anonymises audit log</span></td></tr>
+  <tr><td>Penetration test</td><td><span class="badge gold">Scheduled — to be completed before marketing launch</span></td></tr>
+  <tr><td>Terms of Service</td><td><span class="badge green">v2.0 — 24 May 2026</span></td></tr>
+  <tr><td>Privacy Policy</td><td><span class="badge green">v2.0 — 24 May 2026</span></td></tr>
+</table>
+
+<h2>7. Operational details</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Repository</td><td>github.com/Digital-Relative/Digital-Relative (private)</td></tr>
+  <tr><td>Deployment</td><td>Git push to main &rarr; Vercel auto-deploy + GitHub Action deploys changed edge functions</td></tr>
+  <tr><td>Database backups</td><td>Supabase Pro plan — daily automated backups, point-in-time recovery</td></tr>
+  <tr><td>Uptime target</td><td>99.9%</td></tr>
+  <tr><td>Incident contact</td><td>security@digitalrelative.co.uk</td></tr>
+</table>
+
+<h2>8. Pending before launch</h2>
+<ul>
+  <li>ICO registration (£40, ico.org.uk)</li>
+  <li>Stripe live mode activation</li>
+  <li>Onfido live API keys</li>
+  <li>GetAddress.io production key</li>
+  <li>Penetration test (Pentest People or Cobalt)</li>
+  <li>Native speaker review of Polish, Urdu, Arabic translations</li>
+  <li>Real user testimonials on landing page</li>
+</ul>
+
+<p style="margin-top:56px;font-size:0.82rem;color:#7a93aa;border-top:1px solid #e0d8cc;padding-top:20px;">
+  Digital Relative &middot; Confidential &middot; v99 &middot; 24 May 2026<br>
+  For queries: hello@digitalrelative.co.uk
+</p>
+</body>
+</html>

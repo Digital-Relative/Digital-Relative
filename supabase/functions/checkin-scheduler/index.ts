@@ -1,10 +1,12 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
+import { sendSms } from '../_shared/sms.ts'
 import {
   checkinReminderEmail,
   deadMansSwitchEmail,
   accessGrantedEmail,
+  monthlyHealthEmail,
   expiryReminderEmail,
 } from '../_shared/emails.ts'
 
@@ -50,7 +52,7 @@ serve(async (req) => {
   // ── 1. Check-in reminders and check-in protection ───────────────────────────
   const { data: users, error: usersError } = await supabase
     .from('profiles')
-    .select('id, checkin_frequency_days, last_checkin, plan, switch_triggered_at')
+    .select('id, checkin_frequency_days, last_checkin, plan, switch_triggered_at, phone_number')
     .in('plan', ['single', 'couples'])
     .not('last_checkin', 'is', null)
 
@@ -67,9 +69,22 @@ serve(async (req) => {
       const freqMs    = user.checkin_frequency_days * 86_400_000
       const elapsed   = now.getTime() - last.getTime()
       const overdue   = elapsed - freqMs
-      if (overdue < 0) continue
-
       const overdueDays = Math.floor(overdue / 86_400_000)
+
+      // HIGH-4 fix: advance warning BEFORE the overdue guard
+      // Fires when 3 days remain before the deadline (overdueDays === -3)
+      if (overdueDays === -3) {
+        await supabase.from('notifications').insert({
+          user_id:    user.id,
+          type:       'checkin_due_soon',
+          title:      'Check-in due in 3 days',
+          message:    'Your Digital Relative check-in is due in 3 days. Sign in to check in and keep your vault locked for beneficiaries.',
+          action_url: `${APP_URL}/?page=checkin`,
+          read:       false,
+        }).catch(() => {})
+      }
+
+      if (overdue < 0) continue
 
       // Send reminder at 3, 7, 14 days overdue
       if ([3, 7, 14].includes(overdueDays)) {
@@ -83,14 +98,40 @@ serve(async (req) => {
             subject: `Digital Relative - check-in reminder (${overdueDays} days overdue)`,
             html:    checkinReminderEmail(fullName, overdueDays, `${APP_URL}/?checkin=1`),
           })
+
+          // Also send SMS if phone number on file
+          if (user.phone_number) {
+            await sendSms(
+              user.phone_number,
+              `Digital Relative: check-in overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''}. Sign in to check in: ${APP_URL}/?checkin=1`
+            ).catch(() => {}) // best-effort - never block scheduler
+          }
+          // Write in-app notification row
+          await supabase.from('notifications').insert({
+            user_id:    user.id,
+            type:       'checkin_overdue',
+            title:      `Check-in overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''}`,
+            message:       'Sign in and check in to prevent your beneficiaries receiving access.',
+            action_url: `${APP_URL}/?page=checkin`,
+            read:       false,
+          }).catch(() => {})
           if (sent) results.checkinReminders++
         }
       }
 
-      // Trigger check-in protection — only once
+      // C-4 fix: atomic guard — only trigger if switch_triggered_at is still NULL in DB
+      // Prevents double-firing if scheduler runs twice concurrently
       if (overdueDays >= user.checkin_frequency_days && !user.switch_triggered_at) {
-        await triggerDeadMansSwitch(user.id, supabase, now)
-        results.switchTriggered++
+        const { count } = await supabase
+          .from('profiles')
+          .update({ switch_triggered_at: now.toISOString() })
+          .eq('id', user.id)
+          .is('switch_triggered_at', null)
+          .select('id', { count: 'exact', head: true })
+        if ((count ?? 0) > 0) {
+          await triggerDeadMansSwitch(user.id, supabase, now)
+          results.switchTriggered++
+        }
       }
     } catch (err) {
       console.error(`Error processing user ${user.id.slice(0,8)}:`, err.message)
@@ -151,6 +192,15 @@ serve(async (req) => {
           })
 
           if (sent) {
+            // MED-3 fix: use userId from loop scope, not entry.user_id (out of scope here)
+            await supabase.from('notifications').insert({
+              user_id:    userId,
+              type:       'entry_expiring',
+              title:      `${userEntries.length} vault ${userEntries.length === 1 ? 'entry' : 'entries'} expiring soon`,
+              message:    `You have ${userEntries.length} vault ${userEntries.length === 1 ? 'entry' : 'entries'} expiring soon. Review them in your vault.`,
+              action_url: `${APP_URL}/?page=vault`,
+              read:       false,
+            }).catch(() => {})
             results.expiryEmails++
             // Mark all as notified
             await supabase.from('vault_entries')
@@ -193,6 +243,17 @@ serve(async (req) => {
     }
   } catch (err) {
     console.error('Hold period check failed:', err.message)
+  }
+
+  // ── 4. Monthly vault health emails ───────────────────────────────────────
+  // Only runs on the 1st of each month (to avoid sending every cron run)
+  const isFirstOfMonth = now.getDate() === 1
+  if (isFirstOfMonth) {
+    try {
+      await sendMonthlyHealthEmails(supabase)
+    } catch (err) {
+      console.error('Monthly health emails failed:', err.message)
+    }
   }
 
   return new Response(JSON.stringify(results), {
@@ -276,6 +337,8 @@ async function grantVaultAccess(request: any, supabase: any) {
 
     await supabase.from('beneficiaries').update({
       status: 'access_granted', access_tier: newTier, emergency_access_token: freshToken,
+      // C-3 fix: token expires after 90 days to prevent indefinite access via leaked link
+      token_expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
     }).eq('id', ben.id)
 
     const accessUrl = `${APP_URL}/beneficiary?token=${freshToken}`
@@ -287,4 +350,52 @@ async function grantVaultAccess(request: any, supabase: any) {
   }
 
   await supabase.from('access_requests').update({ status: 'access_granted' }).eq('id', requestId)
+}
+
+async function sendMonthlyHealthEmails(supabase: any) {
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id')
+    .limit(500)
+
+  for (const p of (profiles || [])) {
+    const { data: lastEmail } = await supabase
+      .from('audit_log')
+      .select('created_at')
+      .eq('user_id', p.id)
+      .eq('action', 'monthly_health_email_sent')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const now        = new Date()
+    const lastSent   = lastEmail?.created_at ? new Date(lastEmail.created_at) : null
+    const daysSince  = lastSent ? (now.getTime() - lastSent.getTime()) / 86_400_000 : 999
+
+    if (daysSince < 28) continue
+
+    const [{ count: entryCount }, { count: expiredCount }, { count: unconfirmedBens }] = await Promise.all([
+      supabase.from('vault_entries').select('*', { count: 'exact', head: true }).eq('user_id', p.id),
+      supabase.from('vault_entries').select('*', { count: 'exact', head: true }).eq('user_id', p.id).lt('expiry_date', now.toISOString()),
+      supabase.from('beneficiaries').select('*', { count: 'exact', head: true }).eq('user_id', p.id).eq('status', 'invited'),  // G-3 fix: count only unconfirmed invites, not all non-confirmed statuses
+    ])
+
+    const { data: ownerAuth } = await supabase.auth.admin.getUserById(p.id)
+    const email   = ownerAuth?.user?.email
+    const rawName = ownerAuth?.user?.user_metadata?.full_name || 'there'
+    const name    = rawName.replace(/[\r\n]/g, ' ').slice(0, 100)
+    if (!email) continue
+
+    const issues: string[] = []
+    if ((expiredCount || 0) > 0)    issues.push(`${expiredCount} expired entr${expiredCount === 1 ? 'y' : 'ies'}`)
+    if ((unconfirmedBens || 0) > 0) issues.push(`${unconfirmedBens} beneficiar${unconfirmedBens === 1 ? 'y' : 'ies'} not yet confirmed`)
+
+    await sendEmail({
+      to: email,
+      subject: 'Your Digital Relative monthly vault summary',
+      html: monthlyHealthEmail(name, entryCount || 0, issues),
+    }).catch(() => {})
+
+    await supabase.from('audit_log').insert({ user_id: p.id, action: 'monthly_health_email_sent' })
+  }
 }

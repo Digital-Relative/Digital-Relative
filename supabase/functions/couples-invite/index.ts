@@ -181,13 +181,20 @@ serve(async (req) => {
 
     } else {
       // FIX EF-NEW-3: Don't return invite_code to client
-      const { data: newLink } = await supabase.from('partner_links')
+      // NEW-3 fix: check insert error before building URL
+      const { data: newLink, error: linkInsertErr } = await supabase.from('partner_links')
         .insert([{ requester_id: requesterId, status: 'pending' }])
         .select('invite_code')
         .single()
 
+      if (linkInsertErr || !newLink?.invite_code) {
+        return new Response(JSON.stringify({ error: 'Could not create invite link' }), {
+          status: 500, headers: { ...hdrs, 'Content-Type': 'application/json' },
+        })
+      }
+
       // Build signup URL with invite code pre-filled
-      const inviteUrl = `https://digitalrelative.co.uk/?partner_invite=${newLink?.invite_code}`
+      const inviteUrl = `https://digitalrelative.co.uk/?partner_invite=${newLink.invite_code}`
 
       // Send email server-side only — invite_code never goes to client
       await sendEmail({

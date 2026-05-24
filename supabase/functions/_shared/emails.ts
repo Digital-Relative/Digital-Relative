@@ -168,3 +168,60 @@ export function passwordResetWarningEmail(userName: string): string {
     ${para("If you did not request this password change, please contact us immediately at <a href=\"mailto:security@digitalrelative.co.uk\" style=\"color:${GOLD}\">security@digitalrelative.co.uk</a>.")}
   `)
 }
+
+export function duressAlertEmail(ownerName: string, time: string, location: string): string {
+  return layout(`
+    <h1 style="font-family:Georgia,serif;font-size:24px;color:#e05252;margin:0 0 14px;font-weight:400;">⚠️ Duress PIN used</h1>
+    ${para(`Hi ${he(ownerName)},`)}
+    ${callout("<strong>Your duress PIN was used to access your Digital Relative vault.</strong> If you entered this PIN under coercion or by accident, your real vault data has not been exposed. The person who accessed your account saw only your decoy vault.")}
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px 12px;background:rgba(255,255,255,0.04);font-size:13px;color:${TEXT};font-weight:600;">Time</td><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${he(time)}</td></tr>
+      <tr><td style="padding:8px 12px;background:rgba(255,255,255,0.04);font-size:13px;color:${TEXT};font-weight:600;">Location</td><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${he(location)}</td></tr>
+    </table>
+    ${para("If this was you by accident, you can log in normally with your real vault PIN. If you are in danger, please contact the relevant emergency services.")}
+    ${para("If you need to change your duress PIN, sign in and go to Settings.")}
+  `)
+}
+
+export function duressAdminAlertEmail(userEmail: string, time: string, location: string): string {
+  return layout(`
+    <h1 style="font-family:Georgia,serif;font-size:24px;color:#e05252;margin:0 0 14px;font-weight:400;">Admin: Duress PIN triggered</h1>
+    ${para("A duress PIN was used on the following account:")}
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px 12px;background:rgba(255,255,255,0.04);font-size:13px;color:${TEXT};font-weight:600;">Account</td><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${he(userEmail)}</td></tr>
+      <tr><td style="padding:8px 12px;background:rgba(255,255,255,0.04);font-size:13px;color:${TEXT};font-weight:600;">Time</td><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${he(time)}</td></tr>
+      <tr><td style="padding:8px 12px;background:rgba(255,255,255,0.04);font-size:13px;color:${TEXT};font-weight:600;">Location</td><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${he(location)}</td></tr>
+    </table>
+    ${para("The user saw the decoy vault only. No real vault data was exposed. This is an automated security alert.")}
+  `)
+}
+
+export function monthlyHealthEmail(userName: string, entryCount: number, issues: string[]): string {
+  const hasIssues = issues.length > 0
+  return layout(`
+    <h1 style="font-family:Georgia,serif;font-size:24px;color:#f0ece2;margin:0 0 14px;font-weight:400;">Your monthly vault summary</h1>
+    ${para(`Hi ${he(userName)},`)}
+    ${para(`Your Digital Relative vault currently has <strong style="color:var(--gold)">${entryCount}</strong> entr${entryCount === 1 ? 'y' : 'ies'} stored.`)}
+    ${hasIssues
+      ? callout(`<strong>Items that may need attention:</strong><ul style="margin:8px 0 0;padding-left:20px;">${issues.map(i => `<li style="margin-bottom:4px;">${he(i)}</li>`).join('')}</ul>`)
+      : callout('Everything looks good. Your vault is up to date and your beneficiaries are confirmed.')
+    }
+    ${para('Keeping your vault up to date means your family will have everything they need when it matters most.')}
+    <div style="text-align:center;margin:24px 0;">
+      <a href="https://digitalrelative.co.uk" style="display:inline-block;background:${GOLD};color:#0d1b2a;text-decoration:none;font-size:14px;font-weight:600;padding:14px 36px;border-radius:8px;">Review your vault</a>
+    </div>
+  `)
+}
+
+export function newBeneficiaryNotificationEmail(ownerName: string, beneficiaryName: string, beneficiaryEmail: string, settingsUrl: string): string {
+  return layout(`
+    ${heading("A new beneficiary has been added to your vault")}
+    ${para(`Hi ${he(ownerName)},`)}
+    ${para(`<strong style="color:var(--cream-c)">${he(beneficiaryName)}</strong> (${he(beneficiaryEmail)}) has been added as a beneficiary on your Digital Relative vault.`)}
+    ${callout("If you did not add this person, please remove them immediately and change your password. Your vault data is encrypted and cannot be read without your vault PIN, but a malicious beneficiary could submit a fake death certificate.")}
+    <div style="text-align:center;margin:20px 0;">
+      <a href="${settingsUrl}" style="display:inline-block;background:${GOLD};color:#0d1b2a;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;">Review beneficiaries</a>
+    </div>
+    ${para(`If you added this person yourself, no action is needed.`)}
+  `)
+}

@@ -74,9 +74,12 @@ create policy "Users can update own dependants" on public.dependants
   for update using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id
-    -- second_parent_id can only be set to null or kept as-is by client
+    -- NEW-7 fix: second_parent_id can only be set to null or kept as-is by client
     -- Setting it to a real value requires service role (edge function)
-    and (second_parent_id is null or second_parent_id = second_parent_id)
+    and second_parent_id is not distinct from (
+      select second_parent_id from public.dependants d where d.id = dependants.id
+    )
+    -- NEW-7 fix: second_parent_id must remain unchanged; set only via service-role edge function
   );
 
 create policy "Users can delete own dependants" on public.dependants
@@ -681,3 +684,8 @@ alter table public.mfa_recovery_codes enable row level security;
 alter table public.profiles
   add column if not exists getting_started_dismissed boolean not null default false,
   add column if not exists getting_started_done_items text[] not null default '{}';
+
+-- ── Performance index for scheduler query ────────────────────────────────────
+create index if not exists access_requests_grant_after_idx
+  on public.access_requests(access_grant_after)
+  where access_grant_after is not null;

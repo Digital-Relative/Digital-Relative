@@ -46,9 +46,14 @@ create policy "Users can update own safe fields" on public.profiles
     and coalesce(stripe_customer_id, '')     = coalesce((select stripe_customer_id     from public.profiles where id = auth.uid()), '')
     and coalesce(stripe_subscription_id, '') = coalesce((select stripe_subscription_id from public.profiles where id = auth.uid()), '')
     and coalesce(plan_renewal::text, '')     = coalesce((select plan_renewal::text     from public.profiles where id = auth.uid()), '')
-    -- Block mfa_enrolled and mfa_email_fallback being set directly by the client (must go via edge function)
+    -- Block mfa_enrolled and mfa_email_fallback being set directly by the client
     and mfa_enrolled       = (select mfa_enrolled       from public.profiles where id = auth.uid())
     and mfa_email_fallback = (select mfa_email_fallback from public.profiles where id = auth.uid())
+    -- B-4 fix: block additional security-sensitive fields from client mutation
+    and coalesce(switch_triggered_at::text, '') = coalesce((select switch_triggered_at::text from public.profiles where id = auth.uid()), '')
+    and coalesce(mfa_backup_email, '')          = coalesce((select mfa_backup_email          from public.profiles where id = auth.uid()), '')
+    -- Note: duress_pin_set and duress_key_verification intentionally NOT locked here
+    -- Users legitimately set these via DuressPinSetup — they are personal security prefs, not privilege fields
   );
 
 -- 4. Prevent beneficiary token enumeration
@@ -260,3 +265,29 @@ alter table public.profiles drop constraint if exists valid_stripe_subscription_
 alter table public.profiles
   add constraint valid_stripe_subscription_id
   check (stripe_subscription_id is null or stripe_subscription_id ~* '^sub_[A-Za-z0-9]+$');
+
+-- ── Rate limits TTL cleanup ──────────────────────────────────────────────────
+-- Remove rate limit entries older than 1 hour to prevent unbounded table growth
+create or replace function public.cleanup_rate_limits()
+returns void language plpgsql as $$
+begin
+  delete from public.rate_limits where window_start < now() - interval '1 hour';
+end;
+$$;
+
+-- Run cleanup on every insert into rate_limits (lightweight, rows are tiny)
+create or replace function public.trigger_cleanup_rate_limits()
+returns trigger language plpgsql as $$
+begin
+  -- Only run cleanup ~1 in 100 inserts to avoid overhead
+  if (random() < 0.01) then
+    perform public.cleanup_rate_limits();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists cleanup_rate_limits_trigger on public.rate_limits;
+create trigger cleanup_rate_limits_trigger
+  after insert on public.rate_limits
+  for each row execute function public.trigger_cleanup_rate_limits();

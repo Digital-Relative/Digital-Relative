@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import ChangePasswordPage from './ChangePasswordPage'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { clearTrustedDevice, hasTrustedDevice } from '../lib/crypto'
+import { GenerateRecoveryCodes } from '../components/VaultRecoveryCodes'
+import { usePushNotifications } from '../hooks/usePushNotifications'
+import { WebAuthnSetup } from '../components/WebAuthnSetup'
+import DuressPinSetup from '../components/DuressPinSetup'
 import toast from 'react-hot-toast'
 
 export default function SettingsPage() {
@@ -23,7 +28,15 @@ export default function SettingsPage() {
   const [lostDeviceCode, setLostDeviceCode] = useState('')
   const [lostDeviceSending, setLostDeviceSending] = useState(false)
   const [marketingOptIn, setMarketingOptIn] = useState(profile?.marketing_opt_in || false)
-  const [deviceLog, setDeviceLog]           = useState([])
+  const [phoneNumber, setPhoneNumber]       = useState(profile?.phone_number || '')
+  const [deviceTrusted, setDeviceTrusted]   = useState(() => user ? hasTrustedDevice(user.id) : false)
+  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false)
+  const [showWebAuthn, setShowWebAuthn] = useState(false)
+  const { supported: pushSupported, permission: pushPermission, subscribed: pushSubscribed,
+          loading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications()
+  const [showDuressSetup, setShowDuressSetup] = useState(false)
+  const [deviceLog, setDeviceLog]     = useState([])
+  const [auditLog, setAuditLog]       = useState([])
   const [language, setLanguage]         = useState(profile?.preferred_language || 'en')
   const isOAuth = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'apple'
 
@@ -31,7 +44,18 @@ export default function SettingsPage() {
   useEffect(() => {
     loadMfaFactors()
     loadDeviceLog()
+    loadAuditLog()
   }, [])
+
+  async function loadAuditLog() {
+    const { data } = await supabase
+      .from('audit_log')
+      .select('action, metadata, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setAuditLog(data || [])
+  }
 
   async function loadDeviceLog() {
     const { data } = await supabase
@@ -114,9 +138,26 @@ export default function SettingsPage() {
     finally { setVerifying(false) }
   }
 
+  function revokeTrustedDevice() {
+    if (user?.id) {
+      clearTrustedDevice(user.id)
+      setDeviceTrusted(false)
+      toast.success('Trusted device removed - PIN will be required next time')
+    }
+  }
+
   async function savePreferences() {
     try {
-      await updateProfile({ marketing_opt_in: marketingOptIn, preferred_language: language })
+      // Validate phone format if provided
+    if (phoneNumber && !/^\+[1-9]\d{7,14}$/.test(phoneNumber.replace(/\s/g, ''))) {
+      toast.error('Phone number must be in international format e.g. +447911123456')
+      return
+    }
+    await updateProfile({
+      marketing_opt_in: marketingOptIn,
+      preferred_language: language,
+      phone_number: phoneNumber.replace(/\s/g, '') || null,
+    })
       toast.success('Preferences saved')
     } catch { toast.error('Could not save preferences') }
   }
@@ -131,20 +172,39 @@ export default function SettingsPage() {
   async function handleExportData() {
     const id = toast.loading('Preparing export…')
     try {
-      const [{ data: entries }, { data: bens }, { data: prof }] = await Promise.all([
+      // NEW-5 fix: comprehensive export covering all personal data tables (GDPR Art 15/20)
+      const [
+        { data: entries }, { data: bens }, { data: prof },
+        { data: auditLog }, { data: deviceLog }, { data: notifications },
+        { data: afterIAmGone }, { data: sharedLinks }, { data: documents },
+        { data: decoyEntries }, { data: pushSubs }, { data: webAuthnCreds },
+      ] = await Promise.all([
         supabase.from('vault_entries').select('*').eq('user_id', user.id),
         supabase.from('beneficiaries').select('*').eq('user_id', user.id),
-        supabase.from('profiles').select('id, full_name, plan, plan_renewal, created_at, updated_at, checkin_frequency_days, last_checkin, gdpr_consent_at, account_origin, vault_pin_set, mfa_enrolled').eq('id', user.id).single(),
+        supabase.from('profiles').select('id, full_name, plan, plan_renewal, created_at, updated_at, checkin_frequency_days, last_checkin, gdpr_consent_at, account_origin, vault_pin_set, mfa_enrolled, marketing_opt_in, preferred_language, phone_number').eq('id', user.id).single(),
+        supabase.from('audit_log').select('action, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1000),
+        supabase.from('device_log').select('ip_address, user_agent, location, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('notifications').select('type, title, message, read, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
+        supabase.from('after_i_am_gone').select('guide_data, personal_message, funeral_wishes, updated_at').eq('user_id', user.id).maybeSingle(),
+        supabase.from('shared_links').select('id, content_label, created_at, expires_at, view_count').eq('user_id', user.id),
+        supabase.from('vault_documents').select('id, file_name, category, notes, created_at').eq('user_id', user.id),
+        supabase.from('decoy_entries').select('id, title, category, created_at').eq('user_id', user.id),
+        supabase.from('push_subscriptions').select('endpoint, created_at, active').eq('user_id', user.id),
+        supabase.from('webauthn_credentials').select('device_name, created_at, last_used_at').eq('user_id', user.id),
       ])
       const exportPayload = {
         exported_at: new Date().toISOString(),
-        encryption_notice: "vault_entries fields (username, password, notes) are AES-256-GCM encrypted. They cannot be read without your vault PIN. Digital Relative does not hold your PIN.",
+        encryption_notice: "vault_entries fields (username, password, notes, secure_content) are AES-256-GCM encrypted. They cannot be read without your vault PIN. Digital Relative does not hold your PIN.",
         gdpr_basis: "GDPR Article 20 - Right to data portability",
         profile: prof,
         vault_entries: entries,
         beneficiaries: bens,
       }
-      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' })
+      const exportJson = JSON.stringify(exportPayload, null, 2)
+      const hashBuffer  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(exportJson))
+      const hashHex     = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+      const finalExport = { ...exportPayload, _integrity: { sha256: hashHex, generated_at: new Date().toISOString() } }
+      const blob = new Blob([JSON.stringify(finalExport, null, 2)], { type: 'application/json' })
       const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `digital-relative-export-${Date.now()}.json` })
       a.click()
       toast.dismiss(id); toast.success('Data exported')
@@ -153,6 +213,17 @@ export default function SettingsPage() {
 
   async function handleDeleteAccount() {
     if (confirmDelete !== 'DELETE') { toast.error('Type DELETE to confirm'); return }
+    if (deleteStep === 1) { setDeleteStep(2); return }
+    // Step 2: re-authenticate before deletion
+    const isOAuth = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'apple'
+    if (!isOAuth) {
+      if (!deletePassword) { toast.error('Enter your password to confirm deletion'); return }
+      // Re-authenticate with Supabase
+      const { error: reAuthErr } = await supabase.auth.signInWithPassword({
+        email: user.email, password: deletePassword,
+      })
+      if (reAuthErr) { toast.error('Incorrect password - deletion cancelled'); setDeletePassword(''); return }
+    }
     setDeleting(true)
     try {
       await supabase.functions.invoke('delete-account', { body: { userId: user.id } })
@@ -311,8 +382,132 @@ export default function SettingsPage() {
             </span>
           </label>
         </div>
-        <button className="btn-primary" style={{ fontSize: 13 }} onClick={savePreferences}>Save preferences</button>
+        {/* Push notifications */}
+        {pushSupported && (
+          <div style={{ marginTop: 18 }}>
+            <label className="label">Browser push notifications</label>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 8, lineHeight: 1.6 }}>
+              Receive a reminder 3 days before your check-in is due, plus alerts for new device sign-ins. Works in Chrome, Edge, and Firefox on desktop and Android.
+            </div>
+            {pushPermission === 'denied' ? (
+              <div style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 12px', background: 'rgba(224,82,82,0.08)', borderRadius: 8, border: '1px solid rgba(224,82,82,0.2)' }}>
+                Blocked in browser. To enable, click the lock icon in the address bar and allow notifications for digitalrelative.co.uk.
+              </div>
+            ) : pushSubscribed ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: 'var(--success)' }}>Push notifications enabled</span>
+                <button className="btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }} onClick={pushUnsubscribe} disabled={pushLoading}>Turn off</button>
+              </div>
+            ) : (
+              <button className="btn-ghost" style={{ fontSize: 13 }} onClick={pushSubscribe} disabled={pushLoading}>
+                {pushLoading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Enable push notifications'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Mobile number for SMS reminders */}
+        <div style={{ marginTop: 16 }}>
+          <label className="label">Mobile number for SMS check-in reminders (optional)</label>
+          <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 6 }}>
+            International format e.g. +447911123456. Only used for check-in overdue reminders.
+          </div>
+          <input className="input" type="tel" placeholder="+44..."
+            value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
+        </div>
+
+        <button className="btn-primary" style={{ fontSize: 13, marginTop: 14 }} onClick={savePreferences}>Save preferences</button>
       </div>
+
+      {/* Trusted device */}
+      <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Trusted device</h3>
+        {deviceTrusted ? (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+              This device is trusted. Your vault PIN is saved and you are automatically unlocked when you sign in.
+            </p>
+            <button className="btn-danger" style={{ fontSize: 12 }} onClick={revokeTrustedDevice}>
+              Remove trust from this device
+            </button>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7 }}>
+            This device is not trusted. Tick "Trust this device" on the PIN entry screen to skip the PIN on future sign-ins.
+          </p>
+        )}
+      </div>
+
+      {/* Duress PIN */}
+      <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Duress PIN</h3>
+        {showDuressSetup ? (
+          <DuressPinSetup
+            onComplete={() => { setShowDuressSetup(false); toast.success('Duress PIN active') }}
+            onCancel={() => setShowDuressSetup(false)}
+          />
+        ) : profile?.duress_pin_set ? (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+              Your duress PIN is set. If you are ever coerced into revealing your PIN, give this one instead.
+              The person will see a convincing decoy vault. You and our security team will receive a silent alert.
+            </p>
+            <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setShowDuressSetup(true)}>
+              Change duress PIN
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+              A second PIN that shows a fake vault if you are ever forced to reveal your PIN.
+              Entering it sends a silent alert to you and our security team.
+            </p>
+            <button className="btn-primary" style={{ fontSize: 13 }} onClick={() => setShowDuressSetup(true)}>
+              Set up duress PIN
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Vault PIN recovery codes */}
+      <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Vault recovery codes</h3>
+        {showRecoveryCodes ? (
+          <GenerateRecoveryCodes
+            onDone={() => setShowRecoveryCodes(false)}
+            onCancel={() => setShowRecoveryCodes(false)}
+          />
+        ) : (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 14 }}>
+              If you forget your vault PIN, recovery codes are the only way to regain access to your vault.
+              We cannot recover your data without them. Generate 8 one-time codes and store them somewhere safe.
+            </p>
+            <button className="btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowRecoveryCodes(true)}>
+              Generate recovery codes
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Security keys and passkeys */}
+      {!isOAuth && (
+        <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+          {showWebAuthn ? (
+            <WebAuthnSetup onDone={() => setShowWebAuthn(false)} onCancel={() => setShowWebAuthn(false)} />
+          ) : (
+            <div>
+              <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Security keys and passkeys</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 14 }}>
+                Register a hardware security key (YubiKey), Touch ID, or Windows Hello as a second factor. More phishing-resistant than OTP codes.
+              </p>
+              <button className="btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowWebAuthn(true)}>
+                Manage security keys
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Lost device / MFA reset */}
       {!isOAuth && hasMfa && (
@@ -359,6 +554,49 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      {/* Audit log */}
+      <div className="fade-up-4 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Recent activity</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.6 }}>
+          A log of security-relevant actions on your account.
+        </p>
+        {auditLog.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--text-sub)' }}>No activity recorded yet.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {auditLog.map((entry, i) => {
+              const label = {
+                vault_entry_created:    '+ Vault entry added',
+                vault_entry_updated:    '✎ Vault entry updated',
+                vault_entry_deleted:    '× Vault entry deleted',
+                beneficiary_added:      '+ Beneficiary added',
+                beneficiary_removed:    '× Beneficiary removed',
+                mfa_enabled:            '✓ Two-factor auth enabled',
+                mfa_disabled:           '! Two-factor auth disabled',
+                pin_changed:            '🔑 Vault PIN changed',
+                shared_link_created:    '+ Shared link created',
+                shared_link_revoked:    '× Shared link revoked',
+                shared_link_accessed:   '👁 Shared link accessed',
+                plan_changed:           '◇ Plan changed',
+                gdpr_export:            '↓ Data exported',
+                account_deleted:        '× Account deleted',
+                password_changed:       '🔑 Password changed',
+                device_trusted:         '✓ Device trusted',
+                device_trust_revoked:   '! Device trust removed',
+              }[entry.action] || entry.action?.replace(/_/g, ' ')
+              return (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--border)', gap: 12 }}>
+                  <span style={{ fontSize: 13, color: 'var(--cream-dim)' }}>{label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-sub)', flexShrink: 0 }}>
+                    {new Date(entry.created_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Device log */}
       <div className="fade-up-4 card-static" style={{ marginBottom: 18 }}>

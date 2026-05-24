@@ -99,25 +99,30 @@ export async function decrypt(encoded) {
 
 // FIX CR-5: Encrypt all fields atomically — if any fail, nothing is saved
 export async function encryptEntry(entry) {
-  const [encUsername, encPassword, encNotes] = await Promise.all([
-    entry.username ? encrypt(String(entry.username)) : Promise.resolve(null),
-    entry.password ? encrypt(String(entry.password)) : Promise.resolve(null),
-    entry.notes    ? encrypt(String(entry.notes))    : Promise.resolve(null),
+  // NEW-6 fix: address encrypted alongside other sensitive fields
+  const [encUsername, encPassword, encNotes, encSecureContent, encAddress] = await Promise.all([
+    entry.username       ? encrypt(String(entry.username))       : Promise.resolve(null),
+    entry.password       ? encrypt(String(entry.password))       : Promise.resolve(null),
+    entry.notes          ? encrypt(String(entry.notes))          : Promise.resolve(null),
+    entry.secure_content ? encrypt(String(entry.secure_content)) : Promise.resolve(null),
+    entry.address        ? encrypt(String(entry.address))        : Promise.resolve(null),
   ])
-  return { ...entry, username: encUsername, password: encPassword, notes: encNotes, _encrypted: true }
+  return { ...entry, username: encUsername, password: encPassword, notes: encNotes, secure_content: encSecureContent, address: encAddress, _encrypted: true }
 }
 
 export async function decryptEntry(entry) {
   if (!entry._encrypted) return entry
   try {
-    const [u, p, n] = await Promise.all([
-      entry.username ? decrypt(String(entry.username)) : Promise.resolve(''),
-      entry.password ? decrypt(String(entry.password)) : Promise.resolve(''),
-      entry.notes    ? decrypt(String(entry.notes))    : Promise.resolve(''),
+    const [u, p, n, sc, addr] = await Promise.all([
+      entry.username       ? decrypt(String(entry.username))       : Promise.resolve(''),
+      entry.password       ? decrypt(String(entry.password))       : Promise.resolve(''),
+      entry.notes          ? decrypt(String(entry.notes))          : Promise.resolve(''),
+      entry.secure_content ? decrypt(String(entry.secure_content)) : Promise.resolve(''),
+      entry.address        ? decrypt(String(entry.address))        : Promise.resolve(''),
     ])
-    return { ...entry, username: u, password: p, notes: n, _encrypted: false }
+    return { ...entry, username: u, password: p, notes: n, secure_content: sc, address: addr, _encrypted: false }
   } catch {
-    return { ...entry, _decryptError: true, username: '[Decryption error]', password: '', notes: '' }
+    return { ...entry, _decryptError: true, username: '[Decryption error]', password: '', notes: '', secure_content: '', address: '' }
   }
 }
 
@@ -135,3 +140,123 @@ export async function decryptEntry(entry) {
  * The comment about "password reset breaking vault access" was written before
  * the PIN system was implemented and is now incorrect.
  */
+
+// ── Trusted device — optional PIN-free auto-unlock ──────────────────────────
+// Stores the vault PIN encrypted with a device-specific key in localStorage.
+// The device key is derived from a random token stored in localStorage.
+// Clearing localStorage (or user revoking trust) removes the ability to auto-unlock.
+// The PIN is NEVER stored in plaintext.
+
+const TRUSTED_DEVICE_TOKEN_KEY = 'dr_device_token'
+const TRUSTED_DEVICE_PIN_KEY   = 'dr_trusted_pin'  // prefix, suffixed with userId
+
+function getDeviceToken() {
+  let token = localStorage.getItem(TRUSTED_DEVICE_TOKEN_KEY)
+  if (!token) {
+    token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+    localStorage.setItem(TRUSTED_DEVICE_TOKEN_KEY, token)
+  }
+  return token
+}
+
+async function getDeviceKey(userId) {
+  const enc       = new TextEncoder()
+  const deviceToken = getDeviceToken()
+  const keyMat  = await crypto.subtle.importKey(
+    'raw', enc.encode(deviceToken + userId), 'PBKDF2', false, ['deriveKey']
+  )
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(`dr-device:${userId}`), iterations: 100_000, hash: 'SHA-256' },
+    keyMat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  )
+}
+
+export async function saveTrustedPin(pin, userId) {
+  try {
+    const enc    = new TextEncoder()
+    const devKey = await getDeviceKey(userId)
+    const iv     = crypto.getRandomValues(new Uint8Array(12))
+    const cipher = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv }, devKey, enc.encode(pin)
+    )
+    const stored = JSON.stringify({
+      iv:   Array.from(iv),
+      data: Array.from(new Uint8Array(cipher)),
+    })
+    localStorage.setItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId, stored)
+    return true
+  } catch { return false }
+}
+
+export async function loadTrustedPin(userId) {
+  try {
+    const stored = localStorage.getItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+    if (!stored) return null
+    const { iv, data } = JSON.parse(stored)
+    const devKey = await getDeviceKey(userId)
+    const plain  = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: new Uint8Array(iv) },
+      devKey,
+      new Uint8Array(data)
+    )
+    return new TextDecoder().decode(plain)
+  } catch { return null }
+}
+
+export function clearTrustedDevice(userId) {
+  localStorage.removeItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+}
+
+export function hasTrustedDevice(userId) {
+  return !!localStorage.getItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+}
+
+// ── Vault PIN recovery codes ────────────────────────────────────────────────
+// 8 one-time codes. Each encrypts the vault PIN using a code-derived key.
+// Recovery: code -> decrypt PIN -> derive vault key normally.
+// Regenerating codes requires the current PIN.
+
+function generateRecoveryCode() {
+  // Format: XXXX-XXXX-XXXX (12 hex chars in 3 groups)
+  const bytes = crypto.getRandomValues(new Uint8Array(6))
+  const hex   = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+  return `${hex.slice(0,4)}-${hex.slice(4,8)}-${hex.slice(8,12)}`
+}
+
+async function getCodeKey(code, userId) {
+  const enc    = new TextEncoder()
+  const clean  = code.replace(/-/g, '').toLowerCase()
+  const keyMat = await crypto.subtle.importKey('raw', enc.encode(clean), 'PBKDF2', false, ['deriveKey'])
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(`dr-recovery:${userId}`), iterations: 100_000, hash: 'SHA-256' },
+    keyMat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  )
+}
+
+export async function generateVaultRecoveryCodes(pin, userId) {
+  const codes = Array.from({ length: 8 }, generateRecoveryCode)
+  const enc   = new TextEncoder()
+  const encryptedCodes = await Promise.all(codes.map(async (code, index) => {
+    const codeKey   = await getCodeKey(code, userId)
+    const iv        = crypto.getRandomValues(new Uint8Array(12))
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, codeKey, enc.encode(pin))
+    const combined  = new Uint8Array(iv.byteLength + ciphertext.byteLength)
+    combined.set(iv); combined.set(new Uint8Array(ciphertext), iv.byteLength)
+    return { code_index: index, encrypted_pin: btoa(String.fromCharCode(...combined)), plain: code }
+  }))
+  return encryptedCodes
+}
+
+export async function redeemVaultRecoveryCode(code, userId, encryptedPin) {
+  // Returns the decrypted PIN if the code is correct, throws if not
+  const enc     = new TextEncoder()
+  const dec     = new TextDecoder()
+  const clean   = code.replace(/-/g, '').replace(/\s/g, '')
+  const codeKey = await getCodeKey(clean, userId)
+  const bytes   = Uint8Array.from(atob(encryptedPin), c => c.charCodeAt(0))
+  const iv      = bytes.slice(0, 12)
+  const data    = bytes.slice(12)
+  const plain   = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, codeKey, data)
+  return dec.decode(plain)
+}

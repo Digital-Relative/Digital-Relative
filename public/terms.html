@@ -5,81 +5,111 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terms of Service — Digital Relative</title>
 <style>
-  body { font-family: 'Georgia', serif; max-width: 760px; margin: 0 auto; padding: 48px 24px; color: #1a2a3a; line-height: 1.8; background: #faf9f6; }
+  body { font-family: 'Georgia', serif; max-width: 780px; margin: 0 auto; padding: 48px 24px; color: #1a2a3a; line-height: 1.8; background: #faf9f6; }
   h1 { font-size: 2.2rem; color: #0d1b2a; margin-bottom: 8px; }
-  h2 { font-size: 1.3rem; color: #0d1b2a; margin-top: 40px; border-bottom: 1px solid #e0d8cc; padding-bottom: 8px; }
+  h2 { font-size: 1.25rem; color: #0d1b2a; margin-top: 40px; border-bottom: 1px solid #e0d8cc; padding-bottom: 8px; }
   .meta { color: #7a93aa; font-size: 0.9rem; margin-bottom: 40px; font-family: sans-serif; }
   a { color: #c9a84c; }
-  .logo { font-size: 1.4rem; font-weight: bold; color: #c9a84c; margin-bottom: 32px; display: block; }
-  .important { background: #fef9ec; border-left: 4px solid #c9a84c; padding: 14px 18px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+  .logo { font-size: 1.4rem; font-weight: bold; color: #c9a84c; margin-bottom: 32px; display: block; text-decoration: none; }
+  .callout { background: #f0ece2; border-left: 4px solid #c9a84c; padding: 14px 18px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 0.95rem; }
+  .warning { background: #fef2f2; border-left: 4px solid #c53030; padding: 14px 18px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 0.95rem; }
+  ul li { margin-bottom: 6px; }
 </style>
 </head>
 <body>
 <a href="/" class="logo">Digital Relative</a>
 <h1>Terms of Service</h1>
-<p class="meta">Last updated: 19 May 2025 · Version 1.0 · Governing law: England and Wales</p>
+<p class="meta">Last updated: 24 May 2026 &middot; Version 2.0 &middot; Governing law: England and Wales</p>
 
-<div class="important">
-  <strong>Important:</strong> Please read these terms carefully before using Digital Relative. By creating an account you agree to be bound by these terms.
+<div class="callout">
+  <strong>Please read these terms carefully before using Digital Relative.</strong> By creating an account you agree to be bound by these terms. If you do not agree, do not use the service.
 </div>
 
-<h2>1. About the Service</h2>
-<p>Digital Relative ("the Service", "we", "us") provides a secure digital legacy vault that allows users ("you") to store encrypted account credentials and personal information for access by nominated beneficiaries. The Service is operated by Digital Relative, registered in England and Wales.</p>
+<h2>1. About the service</h2>
+<p>Digital Relative provides a secure digital legacy vault that allows users to store encrypted account credentials, secure notes, and personal information for access by nominated beneficiaries after death or incapacity. The service is operated by Digital Relative, registered in England and Wales.</p>
 
 <h2>2. Eligibility</h2>
-<p>You must be at least 18 years old to use the Service. By registering, you confirm that you are 18 or over and have the legal capacity to enter into this agreement.</p>
+<p>You must be at least 18 years old to use the service. By registering, you confirm that you are 18 or over and have the legal capacity to enter into this agreement.</p>
 
-<h2>3. Your account</h2>
-<p>You are responsible for maintaining the confidentiality of your password and account. You must notify us immediately of any unauthorised access. We cannot recover lost vault contents if you forget your password, as your data is end-to-end encrypted and we hold no copy of your encryption key.</p>
-<p>You are responsible for all activity that occurs under your account.</p>
-
-<h2>4. Subscriptions and payment</h2>
-<p>We offer the following subscription plans:</p>
+<h2>3. Your account and vault PIN</h2>
+<p>You are responsible for maintaining the security of your login password and your vault PIN. These are <strong>separate credentials</strong>:</p>
 <ul>
-  <li><strong>Free</strong> — limited to 5 vault entries and 1 beneficiary, no charge</li>
-  <li><strong>Single</strong> — £18 per year, billed annually</li>
-  <li><strong>Couples</strong> — £5 per month or £45 per year</li>
+  <li>Your <strong>login password</strong> controls access to your account.</li>
+  <li>Your <strong>vault PIN</strong> is the encryption key for your vault contents. It never leaves your device. We do not store it. If you lose your vault PIN and have not saved your recovery codes, <strong>your vault data is permanently unrecoverable</strong>.</li>
 </ul>
-<p>All prices include VAT where applicable. Payments are processed by Stripe. Subscriptions renew automatically unless cancelled. You may cancel at any time through your account settings or by contacting us. No refunds are provided for partial billing periods, except where required by law.</p>
+<p>You must notify us immediately of any unauthorised access at <a href="mailto:security@digitalrelative.co.uk">security@digitalrelative.co.uk</a>. You are responsible for all activity that occurs under your account.</p>
 
-<h2>5. The dead man's switch</h2>
-<p>The dead man's switch feature will trigger access for your nominated beneficiaries if you fail to check in within your chosen period. You are solely responsible for ensuring your check-in preferences are set correctly and that your beneficiaries' contact details are accurate. Digital Relative accepts no liability for failure of beneficiary notification caused by incorrect contact details.</p>
-<div class="important">
-  <strong>Warning:</strong> If you forget to check in and do not respond to reminder emails, your beneficiaries will receive access to your vault. Ensure your check-in frequency is set appropriately.
+<h2>4. Recovery codes</h2>
+<p>We provide 8 one-time recovery codes as a backup for your vault PIN. You must generate and store these codes yourself from Settings. If you lose your vault PIN and do not have recovery codes, we cannot restore your vault data. This is a deliberate design choice — it means even Digital Relative cannot access your data without your consent.</p>
+
+<h2>5. Subscriptions and payment</h2>
+<p>We offer three plans:</p>
+<ul>
+  <li><strong>Free</strong> — up to 5 vault entries and 1 beneficiary. No charge.</li>
+  <li><strong>Single</strong> — unlimited entries. £18 per year, billed annually.</li>
+  <li><strong>Couples</strong> — shared vault for two people. £5 per month or £45 per year.</li>
+</ul>
+<p>All prices include VAT where applicable. Payments are processed by Stripe Payments UK Ltd, authorised by the FCA. Subscriptions renew automatically unless cancelled. You may cancel at any time through Settings. No refunds are provided for partial billing periods, except where required by UK consumer law (Consumer Rights Act 2015 and Consumer Contracts Regulations 2013).</p>
+
+<h2>6. The check-in and dead man's switch</h2>
+<p>You set a check-in frequency. If you do not check in within that period, Digital Relative will send you reminder emails and, if you have provided a mobile number, SMS reminders. If you still do not check in after your full frequency period has passed, your nominated beneficiaries will be notified.</p>
+
+<div class="warning">
+  <strong>Important:</strong> If you do not check in and do not respond to reminders, your beneficiaries will receive access requests to your vault. Set your check-in frequency appropriately for your circumstances. Digital Relative accepts no liability for vault access triggered by a forgotten check-in.
 </div>
 
-<h2>6. Encryption and data recovery</h2>
-<p>Your vault contents are encrypted on your device before transmission. Digital Relative has no access to your encryption key and cannot recover your data if you lose your password. You are solely responsible for maintaining access to your account credentials.</p>
+<p>You are solely responsible for ensuring your beneficiaries' contact details are accurate and that your check-in frequency reflects your circumstances. We accept no liability for failure of beneficiary notification caused by incorrect contact details, email delivery failures outside our control, or beneficiaries not acting on notifications.</p>
 
-<h2>7. Acceptable use</h2>
-<p>You may not use the Service to:</p>
+<h2>7. Emergency access and identity verification</h2>
+<p>Beneficiaries may request emergency access following your death by submitting a death certificate for verification via Onfido (a UK-based identity verification service). All emergency access requests are subject to a mandatory 48-hour review period during which you (if alive) can deny the request. We accept no liability for fraudulent emergency access attempts made by third parties.</p>
+
+<h2>8. Encryption and data recovery</h2>
+<p>Your vault contents are encrypted using AES-256-GCM with a key derived from your vault PIN. Digital Relative has no access to your vault PIN or encryption key. We cannot recover your vault data if you lose your PIN and have not saved recovery codes. Resetting your login password does not affect vault encryption — your vault PIN is independent.</p>
+
+<h2>9. Acceptable use</h2>
+<p>You may not use the service to:</p>
 <ul>
   <li>Store illegal content or facilitate illegal activity</li>
   <li>Infringe the intellectual property rights of others</li>
   <li>Attempt to gain unauthorised access to other accounts or our systems</li>
-  <li>Upload malware or malicious content</li>
-  <li>Use the Service for commercial resale without our written consent</li>
+  <li>Upload malware, malicious content, or files designed to exploit other users</li>
+  <li>Provide false information about the death of another person to gain beneficiary access</li>
+  <li>Use the service for commercial resale without our written consent</li>
+  <li>Use automated tools or bots to access the service at scale</li>
 </ul>
+<p>We reserve the right to terminate accounts that violate these terms without notice where the violation is serious (e.g. fraud, illegal content) or with 14 days notice for lesser violations.</p>
 
-<h2>8. Availability and changes</h2>
-<p>We aim for 99.9% uptime but do not guarantee uninterrupted service. We may modify, suspend, or discontinue the Service at any time with reasonable notice. We will provide at least 30 days' notice of any discontinuation, during which you may export your data.</p>
+<h2>10. Documents and file storage</h2>
+<p>You may upload documents (up to 25MB per file) for storage in your vault. All files are stored encrypted in UK-based infrastructure. You are responsible for ensuring you have the right to store any documents you upload. We do not review the contents of uploaded files.</p>
 
-<h2>9. Limitation of liability</h2>
-<p>To the maximum extent permitted by law, Digital Relative shall not be liable for any indirect, incidental, special, or consequential damages, including loss of data, loss of profits, or business interruption, arising from use of the Service.</p>
-<p>Our total liability to you shall not exceed the total fees paid by you in the 12 months preceding the claim.</p>
+<h2>11. Availability and changes</h2>
+<p>We aim for 99.9% uptime but do not guarantee uninterrupted service. Planned maintenance will be communicated in advance where possible. We may modify the service at any time. We will provide at least 30 days notice of any discontinuation, during which you may export all your data free of charge.</p>
 
-<h2>10. Termination</h2>
-<p>We may terminate or suspend your account for breach of these terms, with or without notice depending on the severity of the breach. You may delete your account at any time through Settings. On termination, all your data will be permanently deleted within 30 days.</p>
+<h2>12. Limitation of liability</h2>
+<p>To the maximum extent permitted by English law, Digital Relative shall not be liable for any indirect, incidental, special, or consequential damages, including loss of data, arising from use of the service. Our total liability to you shall not exceed the total fees paid by you in the 12 months preceding the claim.</p>
+<p>Nothing in these terms limits liability for death or personal injury caused by our negligence, fraud or fraudulent misrepresentation, or any other matter that cannot be excluded by law.</p>
 
-<h2>11. Governing law</h2>
-<p>These terms are governed by the laws of England and Wales. Any disputes shall be subject to the exclusive jurisdiction of the courts of England and Wales. If you are based in the EU, you may also have rights under the laws of your country of residence.</p>
+<h2>13. Data protection</h2>
+<p>We process your personal data in accordance with our <a href="/privacy.html">Privacy Policy</a>, which forms part of these terms. By using the service, you acknowledge that you have read and understood our Privacy Policy.</p>
 
-<h2>12. Changes to these terms</h2>
-<p>We will notify you by email of any material changes. Continued use after notification constitutes acceptance. If you do not accept updated terms, you may close your account and export your data before the changes take effect.</p>
+<h2>14. Termination</h2>
+<p>You may delete your account at any time from Settings. Deletion permanently removes all your data. We may suspend or terminate your account for breach of these terms. On any termination, all vault data is permanently deleted within 30 days, with audit logs anonymised.</p>
 
-<h2>13. Contact</h2>
-<p>For any queries regarding these terms: <a href="mailto:legal@digitalrelative.co.uk">legal@digitalrelative.co.uk</a></p>
+<h2>15. Governing law and disputes</h2>
+<p>These terms are governed by the laws of England and Wales. Any disputes shall be subject to the exclusive jurisdiction of the courts of England and Wales. If you are a consumer, you may also have rights under the laws of your country of residence that cannot be excluded.</p>
 
-<p style="margin-top:48px;font-size:0.85rem;color:#7a93aa;">Digital Relative · Registered in England and Wales</p>
+<h2>16. Changes to these terms</h2>
+<p>We will notify you by email at least 14 days before any material changes take effect. If you do not accept updated terms, you may close your account and export your data before changes take effect. Continued use after the effective date constitutes acceptance.</p>
+
+<h2>17. Contact</h2>
+<p>
+  Legal queries: <a href="mailto:legal@digitalrelative.co.uk">legal@digitalrelative.co.uk</a><br>
+  General support: <a href="mailto:hello@digitalrelative.co.uk">hello@digitalrelative.co.uk</a>
+</p>
+
+<p style="margin-top:56px;font-size:0.82rem;color:#7a93aa;border-top:1px solid #e0d8cc;padding-top:20px;">
+  Digital Relative &middot; Registered in England and Wales<br>
+  Version 2.0 &middot; Effective 24 May 2026
+</p>
 </body>
 </html>

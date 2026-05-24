@@ -117,6 +117,16 @@ serve(async (req) => {
     await supabase.from('device_log').insert({ user_id: user.id, ip_address: ipAddress, user_agent: normalisedUA, location })
 
     if (isNewDevice) {
+      // Write in-app notification for new device sign-in
+      await supabase.from('notifications').insert({
+        user_id:    user.id,
+        type:       'new_device',
+        title:      'New device sign-in',
+        message:       `Your account was accessed from a new device. If this was not you, change your password immediately.`,
+        action_url: `${APP_URL}/?page=settings`,
+        read:       false,
+      }).catch(() => {})
+
       const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
       const name       = profile?.full_name || 'there'
       const deviceType = userAgent.includes('Mobile') ? 'mobile device' : userAgent.includes('iPad') ? 'tablet' : 'computer'

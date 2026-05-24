@@ -48,7 +48,35 @@ const isAdminRoute = window.location.pathname === '/admin/review'
 function AppInner() {
   const { user, profile, loading, transitioning, signOut, fetchProfile } = useAuth()
   const { isLocked }      = useVaultLock()
-  const [page, setPage]   = useState('dashboard')
+  // Sync navigation with browser history so back/forward buttons work
+  const getPageFromUrl = () => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('page') || 'dashboard'
+  }
+  const [page, setPageState] = useState(getPageFromUrl)
+
+  const setPage = (newPage) => {
+    if (newPage === page) return
+    const url = newPage === 'dashboard' ? '/' : `/?page=${newPage}`
+    window.history.pushState({ page: newPage }, '', url)
+    setPageState(newPage)
+  }
+
+  // Set correct state on initial load so history entry is properly tagged
+  useEffect(() => {
+    const initialPage = getPageFromUrl()
+    window.history.replaceState({ page: initialPage }, '', window.location.href)
+  }, [])
+
+  // Listen for browser back/forward button
+  useEffect(() => {
+    const handlePop = (e) => {
+      const pg = e.state?.page || getPageFromUrl() || 'dashboard'
+      setPageState(pg)
+    }
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [])
   const [showAuth, setShowAuth]     = useState(false)
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [pinReady, setPinReady]     = useState(false)

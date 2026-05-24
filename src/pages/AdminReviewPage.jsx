@@ -114,7 +114,7 @@ export default function AdminReviewPage() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: '#7a93aa', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Uploaded document</div>
             {isPDF ? (
-              <iframe src={imageUrl} style={{ width: '100%', height: 600, border: 'none', borderRadius: 8 }} title="Death certificate" />
+              <iframe src={imageUrl} sandbox="allow-same-origin" style={{ width: '100%', height: 600, border: 'none', borderRadius: 8 }} title="Death certificate" />
             ) : (
               <img src={imageUrl} alt="Death certificate" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }} />
             )}

@@ -66,6 +66,7 @@ export default function ShareModal({ item, itemType, onClose }) {
   // Link configuration
   const [expiryIdx, setExpiryIdx]     = useState(3)    // default 24 hours
   const [oneTime, setOneTime]         = useState(false)
+  const [notifyAccess, setNotifyAccess] = useState(true)
   const [includePassword, setIncludePassword] = useState(false)
   const [recipientPin, setRecipientPin]       = useState('')
   const [usePin, setUsePin]                   = useState(false)
@@ -184,6 +185,7 @@ export default function ShareModal({ item, itemType, onClose }) {
         expires_at:        expiresAt,
         one_time:          oneTime,
         max_views:         oneTime ? 1 : null,
+        notify_on_access:  notifyAccess,
       }]).select().single()
 
       if (error) throw error
@@ -327,6 +329,16 @@ export default function ShareModal({ item, itemType, onClose }) {
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: oneTime ? 'var(--gold)' : 'var(--text)' }}>One-time view only</div>
                   <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>Link is destroyed after the first person views it</div>
+                </div>
+              </label>
+
+              {/* Notify on access */}
+              <label style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', padding: '12px 14px', borderRadius: 'var(--r)', border: `1px solid ${notifyAccess ? 'rgba(76,175,130,0.3)' : 'var(--border)'}`, background: notifyAccess ? 'rgba(76,175,130,0.08)' : 'transparent', transition: 'all 0.15s' }}>
+                <input type="checkbox" checked={notifyAccess} onChange={e => setNotifyAccess(e.target.checked)}
+                  style={{ accentColor: 'var(--success)' }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: notifyAccess ? 'var(--success)' : 'var(--text)' }}>Notify me when accessed</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>Send me an email when someone opens this link</div>
                 </div>
               </label>
 

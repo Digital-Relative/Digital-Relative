@@ -29,7 +29,10 @@ export function useBeneficiaries() {
       .single()
     if (error) throw error
     setBeneficiaries(prev => [...prev, data])
-    // In production: trigger invite email via Supabase Edge Function
+    // Send invite email and notify vault owner via edge function
+    supabase.functions.invoke('send-beneficiary-invite', {
+      body: { beneficiaryId: data.id, action: 'send_initial_invite' },
+    }).catch(() => {}) // best-effort - never block the UI
     return data
   }
 

@@ -6,6 +6,9 @@ const AuthContext = createContext(null)
 
 // Auto-lock vault after 30 minutes of inactivity
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
+// Hard 8-hour absolute session limit regardless of activity
+const ABSOLUTE_SESSION_MS   = 8 * 60 * 60 * 1000
+const SESSION_START_KEY     = 'dr_session_start'
 
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null)
@@ -19,13 +22,32 @@ export function AuthProvider({ children }) {
   function resetInactivityTimer() {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     inactivityTimer.current = setTimeout(() => {
-      // Lock vault (clear key) but keep session — user must re-enter password to decrypt
       clearSessionKey()
-      console.info('Vault locked due to inactivity')
     }, INACTIVITY_TIMEOUT_MS)
   }
 
+  // Absolute session timeout - locks vault after 8 hours regardless of activity
+  // Applies to all users including trusted devices
+  function startAbsoluteSessionTimer() {
+    const sessionStart = parseInt(sessionStorage.getItem(SESSION_START_KEY) || '0', 10)
+    const now = Date.now()
+    if (!sessionStart) {
+      sessionStorage.setItem(SESSION_START_KEY, String(now))
+    }
+    const elapsed   = sessionStart ? now - sessionStart : 0
+    const remaining = ABSOLUTE_SESSION_MS - elapsed
+    if (remaining <= 0) {
+      clearSessionKey()
+      return
+    }
+    setTimeout(() => {
+      clearSessionKey()
+      sessionStorage.removeItem(SESSION_START_KEY)
+    }, remaining)
+  }
+
   useEffect(() => {
+    startAbsoluteSessionTimer()
     // Listen for user activity
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll']
     events.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }))
@@ -43,11 +65,17 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       // Brief transition state to prevent flickering between auth states
       setTransitioning(true)
       if (transitionTimer.current) clearTimeout(transitionTimer.current)
       transitionTimer.current = setTimeout(() => setTransitioning(false), 400)
+
+      // Always clear the session key on a new sign-in so the PIN prompt shows
+      // This covers Google OAuth redirects where the module may not have reloaded
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        clearSessionKey()
+      }
 
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
@@ -69,7 +97,8 @@ export function AuthProvider({ children }) {
       'gdpr_consent_at', 'account_origin',
       'vault_pin_set', 'mfa_enrolled', 'mfa_email_fallback',
       'encryption_salt', 'key_verification',
-      'marketing_opt_in', 'preferred_language',
+      'duress_pin_set', 'duress_key_verification',
+      'marketing_opt_in', 'preferred_language', 'phone_number',
       'getting_started_dismissed', 'getting_started_done_items',
     ].join(',')
     const { data } = await supabase
@@ -103,6 +132,7 @@ export function AuthProvider({ children }) {
   async function signIn({ email, password }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    supabase.from('audit_log').insert({ action: 'signed_in', metadata: { method: 'email' } }).catch(() => {})
     // Do NOT derive a key from the password here.
     // The vault key is derived from the vault PIN (not the login password).
     // VaultPinEntry will handle key derivation using PIN + randomSalt from profile.
@@ -113,13 +143,14 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     clearSessionKey()
+    sessionStorage.removeItem(SESSION_START_KEY)
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     await supabase.auth.signOut()
   }
 
   async function updateProfile(updates) {
     // Whitelist allowed fields — prevent client escalating plan
-    const safeFields = ['full_name', 'last_checkin', 'checkin_frequency_days', 'marketing_opt_in', 'preferred_language', 'getting_started_dismissed', 'getting_started_done_items']
+    const safeFields = ['full_name', 'last_checkin', 'checkin_frequency_days', 'marketing_opt_in', 'preferred_language', 'phone_number', 'getting_started_dismissed', 'getting_started_done_items', 'duress_pin_set', 'duress_key_verification']
     const safeUpdates = Object.fromEntries(
       Object.entries(updates).filter(([k]) => safeFields.includes(k))
     )

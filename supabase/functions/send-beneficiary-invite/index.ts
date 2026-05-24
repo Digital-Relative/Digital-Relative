@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?target=deno'
 import { sendEmail } from '../_shared/resend.ts'
-import { beneficiaryInviteEmail } from '../_shared/emails.ts'
+import { beneficiaryInviteEmail, newBeneficiaryNotificationEmail } from '../_shared/emails.ts'
 
 const ALLOWED_ORIGINS = new Set([
   'https://digitalrelative.co.uk',
@@ -87,7 +87,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, status: 'access_granted' }), { headers: { ...hdrs, 'Content-Type': 'application/json' } })
     }
 
-    // Rate limit: max 3 resends per beneficiary per hour
+    // Fetch beneficiary with ownership check
     const { data: beneficiary } = await supabase
       .from('beneficiaries')
       .select('id, user_id, name, email, invite_token, status, resend_requested_at')
@@ -100,8 +100,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Not found or already confirmed' }), { status: 404, headers: { ...hdrs, 'Content-Type': 'application/json' } })
     }
 
-    // Rate limit: 1 hour between resends
-    if (beneficiary.resend_requested_at) {
+    // Rate limit: 1 hour between resends (skip for initial send)
+    if (action !== 'send_initial_invite' && beneficiary.resend_requested_at) {
       const lastResend = new Date(beneficiary.resend_requested_at).getTime()
       if (Date.now() - lastResend < 3_600_000) {
         return new Response(JSON.stringify({ error: 'Please wait before resending' }), { status: 429, headers: { ...hdrs, 'Content-Type': 'application/json' } })
@@ -118,12 +118,27 @@ serve(async (req) => {
     const ownerName = (ownerProfile?.full_name || 'Someone').replace(/[\r\n]/g, ' ').slice(0, 100)
     const inviteUrl = `${APP_URL}/beneficiary?token=${beneficiary.invite_token}`
 
-    // Send invite email
+    // Send invite email to beneficiary
     await sendEmail({
       to:      beneficiary.email,
       subject: `${ownerName} has invited you to Digital Relative`,
       html:    beneficiaryInviteEmail(beneficiary.name, ownerName, inviteUrl),
     })
+
+    // Notify the vault owner so they can spot unauthorised additions
+    const ownerEmail = user.email || ''
+    if (ownerEmail) {
+      await sendEmail({
+        to:      ownerEmail,
+        subject: `New beneficiary added to your Digital Relative vault`,
+        html:    newBeneficiaryNotificationEmail(
+          ownerName,
+          beneficiary.name,
+          beneficiary.email,
+          `${APP_URL}/?page=beneficiaries`,
+        ),
+      }).catch(() => {}) // best-effort - never block the invite
+    }
 
     // Update resend timestamp
     await supabase.from('beneficiaries').update({ resend_requested_at: new Date().toISOString() }).eq('id', beneficiaryId)

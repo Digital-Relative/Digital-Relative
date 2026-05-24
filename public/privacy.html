@@ -5,93 +5,122 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy — Digital Relative</title>
 <style>
-  body { font-family: 'Georgia', serif; max-width: 760px; margin: 0 auto; padding: 48px 24px; color: #1a2a3a; line-height: 1.8; background: #faf9f6; }
+  body { font-family: 'Georgia', serif; max-width: 780px; margin: 0 auto; padding: 48px 24px; color: #1a2a3a; line-height: 1.8; background: #faf9f6; }
   h1 { font-size: 2.2rem; color: #0d1b2a; margin-bottom: 8px; }
-  h2 { font-size: 1.3rem; color: #0d1b2a; margin-top: 40px; border-bottom: 1px solid #e0d8cc; padding-bottom: 8px; }
+  h2 { font-size: 1.25rem; color: #0d1b2a; margin-top: 40px; border-bottom: 1px solid #e0d8cc; padding-bottom: 8px; }
   .meta { color: #7a93aa; font-size: 0.9rem; margin-bottom: 40px; font-family: sans-serif; }
   a { color: #c9a84c; }
-  .logo { font-size: 1.4rem; font-weight: bold; color: #c9a84c; margin-bottom: 32px; display: block; }
-  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; }
-  td, th { border: 1px solid #e0d8cc; padding: 10px 14px; text-align: left; }
+  .logo { font-size: 1.4rem; font-weight: bold; color: #c9a84c; margin-bottom: 32px; display: block; text-decoration: none; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.88rem; }
+  td, th { border: 1px solid #e0d8cc; padding: 10px 14px; text-align: left; vertical-align: top; }
   th { background: #f0ece2; font-weight: 600; }
+  .callout { background: #f0ece2; border-left: 4px solid #c9a84c; padding: 14px 18px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 0.95rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.8rem; font-family: sans-serif; font-weight: 600; margin-left: 4px; }
+  .uk  { background: #d4edda; color: #155724; }
+  .ext { background: #f0f0f0; color: #555; }
 </style>
 </head>
 <body>
 <a href="/" class="logo">Digital Relative</a>
 <h1>Privacy Policy</h1>
-<p class="meta">Last updated: 19 May 2025 · Version 1.0 · Controller: Digital Relative Ltd, United Kingdom</p>
+<p class="meta">Last updated: 24 May 2026 &middot; Version 2.0 &middot; Data controller: Digital Relative, registered in England and Wales &middot; ICO registration: pending</p>
 
-<p>This Privacy Policy explains how Digital Relative ("we", "us", "our") collects, uses, stores, and protects your personal data when you use our digital legacy vault service at digitalrelative.co.uk ("the Service").</p>
+<p>This Privacy Policy explains how Digital Relative collects, uses, stores, and protects your personal data when you use our digital legacy vault service at <strong>digitalrelative.co.uk</strong>.</p>
 
-<p>We are committed to protecting your privacy and handling your data in accordance with the UK General Data Protection Regulation (UK GDPR), the Data Protection Act 2018, and applicable international data protection laws.</p>
+<p>We comply with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.</p>
+
+<div class="callout">
+  <strong>Key facts:</strong> Your vault data is end-to-end encrypted. We cannot read it. All personal data is stored in the UK. We do not sell your data or use it for advertising.
+</div>
 
 <h2>1. Who we are</h2>
-<p>Digital Relative is the data controller for the personal data you provide through our Service. Our contact details are: <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a></p>
+<p>Digital Relative is the data controller. Contact us for any data protection query at <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a>. For security issues: <a href="mailto:security@digitalrelative.co.uk">security@digitalrelative.co.uk</a>.</p>
 
 <h2>2. What data we collect</h2>
 <table>
-  <tr><th>Category</th><th>Data</th><th>Why we collect it</th></tr>
-  <tr><td>Account data</td><td>Name, email address</td><td>To create and manage your account</td></tr>
-  <tr><td>Vault data</td><td>Encrypted credentials, notes, documents</td><td>Core service delivery — stored AES-256 encrypted</td></tr>
-  <tr><td>Beneficiary data</td><td>Names, email addresses, relationship</td><td>To notify beneficiaries per your instructions</td></tr>
-  <tr><td>Payment data</td><td>Subscription status, billing history</td><td>Managed by Stripe — we do not store card details</td></tr>
-  <tr><td>Usage data</td><td>Login times, check-in dates, IP addresses</td><td>Security monitoring and dead man's switch</td></tr>
+  <tr><th>Category</th><th>Examples</th><th>Why</th></tr>
+  <tr><td>Account data</td><td>Name, email address, encrypted password hash</td><td>To create and manage your account</td></tr>
+  <tr><td>Vault data</td><td>Account credentials, notes, secure notes, addresses, documents</td><td>Core service — all fields encrypted with AES-256-GCM before leaving your device. We cannot read this data.</td></tr>
+  <tr><td>Beneficiary data</td><td>Names, email addresses, relationship, group label</td><td>To send invitations and grant access per your instructions</td></tr>
+  <tr><td>Identity verification</td><td>Photo ID, death certificate (Onfido)</td><td>To verify beneficiary identity and process emergency access requests</td></tr>
+  <tr><td>Payment data</td><td>Subscription status, Stripe customer ID</td><td>Subscription management. We never store card numbers — Stripe handles all card data.</td></tr>
+  <tr><td>Security and audit data</td><td>Sign-in timestamps, device type, approximate location (from Cloudflare headers), IP address</td><td>Detecting unauthorised access; new device alerts</td></tr>
+  <tr><td>Communications</td><td>Emails you send to us</td><td>To respond to your queries</td></tr>
+  <tr><td>Phone number (optional)</td><td>Mobile number in E.164 format</td><td>SMS check-in reminders only, if you provide it</td></tr>
 </table>
 
 <h2>3. How we use your data</h2>
-<p>We process your data under the following lawful bases:</p>
-<ul>
-  <li><strong>Contract performance</strong> — to deliver the vault service you have subscribed to</li>
-  <li><strong>Legitimate interests</strong> — to maintain security, prevent fraud, and improve the service</li>
-  <li><strong>Legal obligation</strong> — to comply with UK law, including financial regulations</li>
-  <li><strong>Consent</strong> — for marketing communications (you may withdraw at any time)</li>
-</ul>
-
-<h2>4. Encryption and security</h2>
-<p>Your vault contents (credentials, passwords, notes) are encrypted using AES-256-GCM <strong>before they leave your device</strong>. The encryption key is derived from your password using PBKDF2 with 200,000 iterations. This means that neither Digital Relative, nor our infrastructure providers, can access the contents of your vault — only you and your nominated beneficiaries can.</p>
-<p>We enforce multi-factor authentication (MFA) for all email/password accounts. We conduct regular security reviews and store all data in EU-based data centres.</p>
-
-<h2>5. Who we share your data with</h2>
 <table>
-  <tr><th>Recipient</th><th>Purpose</th><th>Location</th></tr>
-  <tr><td>Supabase</td><td>Database, authentication, file storage</td><td>EU (Ireland)</td></tr>
-  <tr><td>Stripe</td><td>Payment processing</td><td>EU/US (Standard Contractual Clauses)</td></tr>
-  <tr><td>Vercel</td><td>Web hosting</td><td>EU</td></tr>
-  <tr><td>Google / Apple</td><td>OAuth sign-in (if used)</td><td>Per provider privacy policy</td></tr>
+  <tr><th>Purpose</th><th>Legal basis</th></tr>
+  <tr><td>Delivering the vault service (storing encrypted data, triggering beneficiary access on check-in failure)</td><td>Contract performance</td></tr>
+  <tr><td>Authentication, MFA, session management</td><td>Contract performance</td></tr>
+  <tr><td>Payment processing and subscription management</td><td>Contract performance</td></tr>
+  <tr><td>Security monitoring, device logging, fraud prevention</td><td>Legitimate interests</td></tr>
+  <tr><td>Retaining transaction records</td><td>Legal obligation (UK financial regulation, 7 years)</td></tr>
+  <tr><td>Marketing emails and partner offers</td><td>Consent (opt-in only, withdraw any time in Settings)</td></tr>
+  <tr><td>SMS check-in reminders</td><td>Consent (you provide your number)</td></tr>
 </table>
-<p>We do not sell your data to third parties. We do not use your data for advertising.</p>
 
-<h2>6. International transfers</h2>
-<p>Where data is transferred outside the UK/EEA, we ensure appropriate safeguards are in place, including Standard Contractual Clauses (SCCs) approved by the ICO.</p>
+<h2>4. How we protect your data</h2>
+<p>Your vault contents are encrypted on your device using <strong>AES-256-GCM</strong> before transmission. The encryption key is derived from your <strong>vault PIN</strong> using PBKDF2 with 600,000 iterations and a random per-user salt. Your PIN is never transmitted or stored. Neither Digital Relative nor our infrastructure providers can read your vault data.</p>
+<p>Access to your account is protected by a separate login password and mandatory multi-factor authentication (MFA) for email/password users. We maintain a comprehensive audit log, device activity alerts, and an inactivity auto-lock.</p>
 
-<h2>7. How long we keep your data</h2>
-<p>We retain your account data for as long as your account is active. Vault contents are retained until you delete them or close your account. On account deletion, all data is permanently and irreversibly erased within 30 days. Anonymised usage statistics may be retained indefinitely.</p>
+<h2>5. Where your data is stored</h2>
+<p>We are committed to keeping your data in the UK. The following table describes exactly where data goes and why.</p>
+<table>
+  <tr><th>Provider</th><th>Location</th><th>Purpose</th></tr>
+  <tr><td>Supabase <span class="badge uk">UK</span></td><td>London (AWS eu-west-2)</td><td>Primary database, authentication, file storage, and edge functions. All vault data lives here.</td></tr>
+  <tr><td>Onfido <span class="badge uk">UK</span></td><td>London HQ</td><td>Identity verification and death certificate processing for emergency access</td></tr>
+  <tr><td>GetAddress.io <span class="badge uk">UK</span></td><td>UK</td><td>Postcode lookup for address fields. Only a postcode is sent — no personal data.</td></tr>
+  <tr><td>Stripe <span class="badge uk">UK</span></td><td>UK entity (Stripe Payments UK Ltd, FCA-authorised)</td><td>Payment processing. No card data passes through our servers.</td></tr>
+  <tr><td>Resend <span class="badge uk">UK/EU</span></td><td>UK entity</td><td>Transactional email (OTP codes, notifications, invitations). Contains your name and notification content but never vault data.</td></tr>
+  <tr><td>Twilio <span class="badge ext">Optional</span></td><td>US</td><td>SMS check-in reminders, only if you provide a mobile number. Only your phone number and a plain-text reminder message are sent.</td></tr>
+  <tr><td>Cloudflare <span class="badge ext">Global CDN</span></td><td>Global</td><td>Serves the application's static files only. No personal data. Approximate location for security alerts is derived from Cloudflare's infrastructure headers — no data is sent to Cloudflare by us.</td></tr>
+</table>
+<p>Twilio is the only provider outside the UK/EU that receives personal data. If you do not provide a mobile number in Settings, Twilio is not used at all. Where data is transferred outside the UK, we ensure appropriate safeguards (Standard Contractual Clauses) are in place.</p>
 
-<h2>8. Your rights</h2>
-<p>Under UK GDPR you have the right to:</p>
-<ul>
-  <li><strong>Access</strong> — request a copy of your data (Settings → Export data)</li>
-  <li><strong>Rectification</strong> — correct inaccurate data</li>
-  <li><strong>Erasure</strong> — delete your account and all data (Settings → Delete account)</li>
-  <li><strong>Portability</strong> — receive your data in a machine-readable format (JSON export)</li>
-  <li><strong>Restriction</strong> — request we limit processing of your data</li>
-  <li><strong>Object</strong> — object to processing based on legitimate interests</li>
-</ul>
-<p>To exercise any right, contact <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a>. We will respond within 30 days. You also have the right to lodge a complaint with the ICO at <a href="https://ico.org.uk">ico.org.uk</a>.</p>
+<h2>6. How long we keep your data</h2>
+<table>
+  <tr><th>Data type</th><th>Retention period</th></tr>
+  <tr><td>Active account and vault data</td><td>Until account deletion</td></tr>
+  <tr><td>Deleted accounts</td><td>All vault data and personal data permanently deleted within 30 days. Audit log anonymised (user ID removed).</td></tr>
+  <tr><td>Payment records (Stripe transaction IDs)</td><td>7 years (UK financial regulation)</td></tr>
+  <tr><td>Device and sign-in logs</td><td>90 days, then automatically deleted</td></tr>
+  <tr><td>Identity verification data (Onfido)</td><td>Per Onfido's retention policy — deleted after verification is complete</td></tr>
+</table>
 
-<h2>9. Cookies</h2>
-<p>We use only essential cookies required for authentication and session management. We do not use advertising or tracking cookies. No cookie consent banner is required for essential cookies only.</p>
+<h2>7. Your rights under UK GDPR</h2>
+<table>
+  <tr><th>Right</th><th>How to exercise it</th></tr>
+  <tr><td>Access — request a copy of your data</td><td>Settings &rarr; Export my data (immediate JSON download)</td></tr>
+  <tr><td>Rectification — correct inaccurate data</td><td>Update your profile in Settings at any time</td></tr>
+  <tr><td>Erasure — delete all your data</td><td>Settings &rarr; Delete account (permanent, requires password confirmation)</td></tr>
+  <tr><td>Portability — receive data in machine-readable format</td><td>Settings &rarr; Export my data</td></tr>
+  <tr><td>Restriction — limit processing while a complaint is investigated</td><td>Email <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a></td></tr>
+  <tr><td>Object — object to processing based on legitimate interests</td><td>Email <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a></td></tr>
+  <tr><td>Withdraw consent — marketing and SMS reminders</td><td>Settings &rarr; Notifications & preferences</td></tr>
+</table>
+<p>We will respond to all requests within 30 days. You also have the right to lodge a complaint with the Information Commissioner's Office at <a href="https://ico.org.uk">ico.org.uk</a>.</p>
 
-<h2>10. Children</h2>
-<p>Our Service is not directed at children under 18. We do not knowingly collect data from children. If you believe a child has provided us with data, please contact us immediately.</p>
+<h2>8. Cookies</h2>
+<p>We use only essential cookies required for authentication and secure session management. We do not use advertising, tracking, or analytics cookies. No cookie consent banner is required for essential cookies only.</p>
 
-<h2>11. Changes to this policy</h2>
-<p>We will notify you by email of any material changes to this policy. Continued use of the Service after notification constitutes acceptance of the updated policy.</p>
+<h2>9. Children</h2>
+<p>Our Service is not directed at anyone under 18. We do not knowingly collect data from children. If you believe a child has provided us with data, please contact us immediately.</p>
 
-<h2>12. Contact us</h2>
-<p>For any privacy queries: <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a><br>
-For urgent security issues: <a href="mailto:security@digitalrelative.co.uk">security@digitalrelative.co.uk</a></p>
+<h2>10. Changes to this policy</h2>
+<p>We will notify you by email at least 14 days before any material changes take effect. The current version is always available at this URL. Continued use after the effective date constitutes acceptance.</p>
 
-<p style="margin-top:48px;font-size:0.85rem;color:#7a93aa;">Digital Relative · Registered in England and Wales · ICO Registration: pending</p>
+<h2>11. Contact</h2>
+<p>
+  Privacy queries: <a href="mailto:privacy@digitalrelative.co.uk">privacy@digitalrelative.co.uk</a><br>
+  Security issues: <a href="mailto:security@digitalrelative.co.uk">security@digitalrelative.co.uk</a><br>
+  ICO complaints: <a href="https://ico.org.uk">ico.org.uk</a>
+</p>
+
+<p style="margin-top:56px;font-size:0.82rem;color:#7a93aa;border-top:1px solid #e0d8cc;padding-top:20px;">
+  Digital Relative &middot; Registered in England and Wales &middot; ICO Registration: pending<br>
+  Version 2.0 &middot; Effective 24 May 2026
+</p>
 </body>
 </html>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import ExecutorDashboard from '../components/ExecutorDashboard'
 import AfterIAmGonePage from './AfterIAmGonePage'
 
 
@@ -193,6 +194,7 @@ export default function BeneficiaryPortal() {
   const [ownerGuide, setOwnerGuide]     = useState(null)
   const [personalMessage, setPersonalMessage] = useState('')
   const [funeralWishes, setFuneralWishes]     = useState(null)
+  const [sessionExpired, setSessionExpired]   = useState(false)
   const [entries, setEntries]         = useState([])
   const [checkedOff, setCheckedOff]   = useState({})
   const [loading, setLoading]         = useState(false)
@@ -201,6 +203,17 @@ export default function BeneficiaryPortal() {
   const [verifyStep, setVerifyStep]   = useState('form')
 
   useEffect(() => { loadToken() }, [])
+
+  // Portal session timeout - 30 minutes inactivity
+  useEffect(() => {
+    if (!beneficiary) return
+    const PORTAL_TIMEOUT_MS = 30 * 60 * 1000
+    let timer = setTimeout(() => setSessionExpired(true), PORTAL_TIMEOUT_MS)
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll']
+    const reset  = () => { clearTimeout(timer); timer = setTimeout(() => setSessionExpired(true), PORTAL_TIMEOUT_MS) }
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }))
+    return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)) }
+  }, [beneficiary])
 
   async function loadToken() {
     if (!token) { setStage(STAGES.invalid); return }
@@ -303,6 +316,33 @@ export default function BeneficiaryPortal() {
     )
   }
 
+  if (sessionExpired) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: 'var(--navy)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}>
+        <div style={{
+          background: '#0d1e30', border: '1px solid rgba(201,168,76,0.3)',
+          borderRadius: 16, padding: '40px 32px', maxWidth: 400, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⏱</div>
+          <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)', marginBottom: 12 }}>
+            Session expired
+          </h2>
+          <p style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 24 }}>
+            Your session has expired after 30 minutes of inactivity. Please use your original link to access the vault again.
+          </p>
+          <button className="btn-primary" style={{ width: '100%' }}
+            onClick={() => window.location.reload()}>
+            Return to start
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (stage === STAGES.invalid) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--navy)' }}>
@@ -371,6 +411,7 @@ export default function BeneficiaryPortal() {
             { id: 'guide',     label: '💛 Their guide' },
             { id: 'verify',    label: stage === STAGES.tier2 ? '✓ Verified' : '🪪 Verify identity' },
             { id: 'letters',   label: '✉️ Letter templates' },
+            ...(beneficiary?.is_executor ? [{ id: 'executor', label: '⚖️ Executor' }] : []),
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
               flex: 1, padding: '9px 8px', borderRadius: 6, border: 'none',
@@ -478,6 +519,11 @@ export default function BeneficiaryPortal() {
         )}
 
         {/* ── VERIFY TAB ── */}
+        {/* ── EXECUTOR TAB ── */}
+        {activeTab === 'executor' && beneficiary?.is_executor && (
+          <ExecutorDashboard entries={entries} beneficiaryId={beneficiary?.id} />
+        )}
+
         {activeTab === 'verify' && (
           <div>
             {stage === STAGES.tier2 ? (
