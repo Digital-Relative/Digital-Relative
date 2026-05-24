@@ -4,22 +4,22 @@ import { useTranslation } from '../lib/i18n'
 import { PLANS } from '../lib/stripe'
 import NotificationBell from './NotificationBell'
 
-const NAV = [
-  { id: 'dashboard',     label: 'Dashboard',       icon: '◈' },
-  { id: 'vault',         label: t('nav_vault'),         icon: '⬡' },
-  { id: 'documents',     label: t('nav_documents'),        icon: '📁' },
-  { id: 'beneficiaries', label: t('nav_beneficiaries'),   icon: '◉' },
-  { id: 'couples',       label: 'Couples vault',    icon: '💑', couplesOnly: true },
-  { id: 'family',        label: t('nav_family'),           icon: '👨‍👩‍👧‍👦' },
-  { id: 'checkin',       label: t('nav_checkin'),         icon: '◎' },
-  { id: 'afteriamgone',  label: 'After I\'m Gone',  icon: '💛' },
-  { id: 'sharedlinks',   label: t('nav_shared'),      icon: '🔗' },
-  { id: 'plan',          label: t('nav_plan'),          icon: '◇' },
-  { id: 'blog',          label: t('nav_blog'),        icon: '📖', alwaysShow: true },
-  { id: 'about',         label: t('nav_about'),            icon: 'ℹ',  alwaysShow: true },
-  { id: 'privacy',       label: t('nav_privacy'),          icon: '🔏', alwaysShow: true },
-  { id: 'terms',         label: t('nav_terms'),            icon: '📄', alwaysShow: true },
-  { id: 'settings',      label: t('nav_settings'),         icon: '⚙' },
+const NAV_IDS = [
+  { id: 'dashboard',    icon: '◈', key: null,                  label: 'Dashboard' },
+  { id: 'vault',        icon: '⬡', key: 'nav_vault' },
+  { id: 'documents',    icon: '📁', key: 'nav_documents' },
+  { id: 'beneficiaries',icon: '◉', key: 'nav_beneficiaries' },
+  { id: 'couples',      icon: '💑', key: null, label: 'Couples vault', couplesOnly: true },
+  { id: 'family',       icon: '👨‍👩‍👧‍👦', key: 'nav_family' },
+  { id: 'checkin',      icon: '◎', key: 'nav_checkin' },
+  { id: 'afteriamgone', icon: '💛', key: null, label: "After I'm Gone" },
+  { id: 'sharedlinks',  icon: '🔗', key: 'nav_shared' },
+  { id: 'plan',         icon: '◇', key: 'nav_plan' },
+  { id: 'blog',         icon: '📖', key: 'nav_blog',     alwaysShow: true },
+  { id: 'about',        icon: 'ℹ',  key: 'nav_about',    alwaysShow: true },
+  { id: 'privacy',      icon: '🔏', key: 'nav_privacy',  alwaysShow: true },
+  { id: 'terms',        icon: '📄', key: 'nav_terms',    alwaysShow: true },
+  { id: 'settings',     icon: '⚙',  key: 'nav_settings' },
 ]
 
 // Bottom nav shown on mobile — show the most important items
@@ -47,6 +47,11 @@ function TreeMark({ size = 32 }) {
 export default function Sidebar({ active, onNav }) {
   const { profile, signOut } = useAuth()
   const t = useTranslation(profile?.preferred_language || 'en')
+  // Build translated nav inside the component so t() is in scope
+  const NAV = NAV_IDS.map(item => ({
+    ...item,
+    label: item.key ? t(item.key) : item.label,
+  }))
   const planId    = profile?.plan || 'free'
   const plan      = PLANS[planId] || PLANS.free
   const isCouples = planId === 'couples'
