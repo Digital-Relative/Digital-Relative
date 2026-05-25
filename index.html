@@ -20,6 +20,15 @@
   <body>
   <a href="#root" class="skip-link">Skip to main content</a>
     <div id="root" role="main"></div>
+    <script>
+      window.__errors = [];
+      window.onerror = function(msg, src, line, col, err) {
+        window.__errors.push({msg, src: src ? src.split('/').pop() : '', line, col, stack: err ? err.stack : ''});
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        window.__errors.push({msg: e.reason ? String(e.reason) : 'unhandled rejection', stack: e.reason && e.reason.stack ? e.reason.stack : ''});
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
 
     <!-- Crisp live chat initialised from main.jsx if VITE_CRISP_WEBSITE_ID is set -->
