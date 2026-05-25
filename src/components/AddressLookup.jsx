@@ -47,12 +47,12 @@ async function addressNowRetrieve(id) {
   const params = new URLSearchParams({
     Key: ADDRESSNOW_KEY,
     Id: id,
-    Field1Format: '{Line1}',
-    Field2Format: '{Line2}',
-    Field3Format: '{Line3}',
-    Field4Format: '{City}',
-    Field5Format: '{Province}',
-    Field6Format: '{PostalCode}',
+    Field1Format: '{Line1}',   // house number/name + street
+    Field2Format: '{Line2}',   // locality/area (often blank)
+    Field3Format: '{Line3}',   // district (often blank)
+    Field4Format: '{Line4}',   // post town (e.g. Sheffield) - NOT {City}
+    Field5Format: '{Line5}',   // county (e.g. South Yorkshire)
+    Field6Format: '{PostalCode}', // postcode
   })
   const res = await fetch(`https://api.addressnow.co.uk/capture/interactive/retrieve/v1.20/json3.ws?${params}`)
   const data = await res.json()
@@ -119,10 +119,15 @@ export default function AddressLookup({ value, onChange }) {
     try {
       const addr = await addressNowRetrieve(item.Id)
       if (addr) {
+        // Line1 = house/street, Line2 = locality, Line3 = district
+        // Line4 = post town, Line5 = county, PostalCode = postcode
+        // Combine locality+district into line2/line3, skip blanks
+        const locality = addr.Field2 || ''
+        const district = addr.Field3 || ''
         const next = {
           line1: addr.Field1 || '',
-          line2: addr.Field2 || '',
-          line3: addr.Field3 || '',
+          line2: locality,
+          line3: locality && district && locality !== district ? district : (!locality ? district : ''),
           town:  addr.Field4 || '',
           county: addr.Field5 || '',
           postcode: addr.Field6 || '',
