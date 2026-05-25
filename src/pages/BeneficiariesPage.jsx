@@ -24,9 +24,21 @@ const COMMON_RELATIONS = [
 const ACCESS_LEVELS = ['Full access', 'Read only', 'Specific categories only']
 
 function BenModal({ onClose, onSave, beneficiaries = [] }) {
-  const [form, setForm] = useState({ name: '', relation: '', email: '', access_level: 'Full access', access_requirement: 'trust_only', group_name: '' })
+  const DRAFT_KEY = 'dr_ben_draft'
+  const [form, setForm] = useState(() => {
+    // Restore draft from sessionStorage if available
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY)
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return { name: '', relation: '', email: '', access_level: 'Full access', access_requirement: 'trust_only', group_name: '' }
+  })
   const [saving, setSaving] = useState(false)
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => setForm(f => {
+    const next = { ...f, [k]: v }
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next)) } catch {}
+    return next
+  })
 
   async function handleSave() {
     const nameErr = validateName(form.name)
@@ -228,7 +240,9 @@ export default function BeneficiariesPage({ onNav }) {
 
   // Unique groups for filter tabs
   const groups = ['all', ...new Set(beneficiaries.filter(b => b.group_name).map(b => b.group_name))]
-  const [showModal, setShowModal] = useState(false)
+  const [showModal, setShowModal] = useState(() => {
+    try { return sessionStorage.getItem('dr_ben_modal') === 'open' } catch { return false }
+  })
 
   const planId = profile?.plan || 'free'
   const plan   = PLANS[planId] || PLANS.free
@@ -381,7 +395,7 @@ export default function BeneficiariesPage({ onNav }) {
         )}
       </div>
 
-      {showModal && <BenModal onClose={() => setShowModal(false)} onSave={handleAdd} beneficiaries={beneficiaries} />}
+      {showModal && <BenModal onClose={() => { try { sessionStorage.removeItem('dr_ben_draft'); sessionStorage.removeItem('dr_ben_modal') } catch {} setShowModal(false) }} onSave={handleAdd} beneficiaries={beneficiaries} />}
     </div>
   )
 }

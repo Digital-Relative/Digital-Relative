@@ -132,10 +132,11 @@ const STRUCTURED_FIELDS = {
 
 function EntryModal({ entry, onClose, onSave, onDelete }) {
   const isEdit = !!entry?.id
-  const [form, setForm] = useState(entry || {
-    address: '',
-    category: 'banking', title: '', username: '', password: '', notes: '', secure_content: '', structured_data: {},
-    expiry_date: '', expiry_reminder_days: [30],
+  const DRAFT_KEY = 'dr_entry_draft'
+  const [form, setForm] = useState(() => {
+    if (entry?.id) return entry
+    try { const s = sessionStorage.getItem(DRAFT_KEY); if (s) return JSON.parse(s) } catch {}
+    return entry || { address: '', category: 'banking', title: '', username: '', password: '', notes: '', secure_content: '', structured_data: {}, expiry_date: '', expiry_reminder_days: 30 }
   })
   const [showPass, setShowPass] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -474,8 +475,8 @@ export default function VaultPage({ onNav }) {
   const [restoringId, setRestoringId] = useState(null)
   const [showExpired, setShowExpired] = useState(false)
   const [revealEntry, setRevealEntry] = useState(null)
-  const [shareEntry, setShareEntry]   = useState(null)
   const [showImport, setShowImport]   = useState(false)
+  const [shareEntry, setShareEntry]   = useState(null)
 
   const planId  = profile?.plan || 'free'
   const plan    = PLANS[planId] || PLANS.free
@@ -545,7 +546,7 @@ export default function VaultPage({ onNav }) {
               ⬆ Import CSV
             </button>
           )}
-          <button className="btn-primary" onClick={() => atLimit ? onNav('plan') : setModal('new')}>
+          <button className="btn-primary" onClick={() => atLimit ? onNav('plan') : (()=>{ try{sessionStorage.setItem('dr_modal_open','new')}catch{} setModal('new') })()}>
             {atLimit ? 'Upgrade to add more' : '+ Add entry'}
           </button>
         </div>
@@ -824,7 +825,7 @@ export default function VaultPage({ onNav }) {
       {(modal === 'new' || (modal && modal.id)) && (
         <EntryModal
           entry={modal === 'new' ? null : modal}
-          onClose={() => setModal(null)}
+          onClose={() => { try{sessionStorage.removeItem('dr_modal_open');sessionStorage.removeItem('dr_entry_draft')}catch{} setModal(null) }}
           onSave={handleSave}
           onDelete={handleDelete}
         />
