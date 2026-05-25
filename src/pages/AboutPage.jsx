@@ -50,7 +50,7 @@ export default function AboutPage() {
           {[
             { flag: '🇬🇧', name: 'Supabase (London)', purpose: 'Database, authentication, file storage, and edge functions. All vault data is stored here. AWS eu-west-2, physically in the UK.', uk: true },
             { flag: '🇬🇧', name: 'Onfido', purpose: 'Identity verification and death certificate processing for beneficiary access. UK company, London HQ.', uk: true },
-            { flag: '🇬🇧', name: 'postcodes.io', purpose: 'UK postcode lookup for address fields. UK company, UK servers.', uk: true },
+            { flag: '🇬🇧', name: 'Royal Mail AddressNow', purpose: 'UK address lookup using the Postcode Address File (PAF). Royal Mail, UK servers.', uk: true },
             { flag: '🇬🇧', name: 'Resend', purpose: 'Transactional email delivery (OTP codes, notifications, invites). UK entity available; email content contains names but never vault data.', uk: true },
             { flag: '🇬🇧', name: 'Stripe', purpose: 'Payment processing. Stripe has a UK entity and processes UK payments under UK financial regulation.', uk: true },
             { flag: '🌐', name: 'Cloudflare', purpose: 'Serves the application globally via CDN. Static files only - no user data. Approximate location data derived from Cloudflare headers without any third-party lookup.', uk: false },

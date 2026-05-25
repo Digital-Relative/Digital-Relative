@@ -4,9 +4,18 @@ import { supabase } from '../lib/supabase'
 import { DEPENDENT_TYPES, PROFILE_FIELDS, SHARED_FAMILY_FIELDS, CHILD_ACCESS_OPTIONS } from '../lib/familyProfiles'
 import { encrypt, decrypt, encryptEntry, decryptEntry } from '../lib/crypto'
 import toast from 'react-hot-toast'
+import AddressLookup from '../components/AddressLookup'
 
 // ── Field renderer ─────────────────────────────────────────────────────────
 function FieldInput({ field, value, onChange }) {
+  if (field.id && field.id.includes('address')) {
+    return (
+      <AddressLookup
+        value={value || ''}
+        onChange={v => onChange(field.id, v)}
+      />
+    )
+  }
   if (field.type === 'textarea') {
     return (
       <textarea className="input" style={{ height: 70 }}
