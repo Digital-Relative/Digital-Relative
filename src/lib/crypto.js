@@ -41,7 +41,13 @@ export function generateSalt() {
 let _sessionKey = null
 export function setSessionKey(key) { _sessionKey = key }
 export function getSessionKey()    { return _sessionKey }
-export function clearSessionKey()  { _sessionKey = null }
+export function clearSessionKey()  {
+  if (_sessionKey !== null) {
+    // Log stack trace to identify what's clearing the key
+    console.warn('[DR] clearSessionKey called', new Error().stack?.split('\n').slice(1,4).join(' | '))
+  }
+  _sessionKey = null
+}
 export function hasSessionKey()    { return _sessionKey !== null }
 
 // ── FIX CR-4: Unicode-safe base64 helpers ───────────────────────────────────

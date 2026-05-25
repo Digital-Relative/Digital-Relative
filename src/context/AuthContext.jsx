@@ -5,7 +5,7 @@ import { deriveKey, setSessionKey, clearSessionKey } from '../lib/crypto'
 const AuthContext = createContext(null)
 
 // Auto-lock vault after 30 minutes of inactivity
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000  // 2 hours - vault locks after 2 hours of genuine inactivity
 // Hard 8-hour absolute session limit regardless of activity
 const ABSOLUTE_SESSION_MS   = 8 * 60 * 60 * 1000
 const SESSION_START_KEY     = 'dr_session_start'
@@ -50,11 +50,24 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     startAbsoluteSessionTimer()
     // Listen for user activity
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'visibilitychange']
-    events.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }))
+    // Activity events reset the inactivity timer
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll']
+    activityEvents.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }))
+
+    // Pause timer when tab is hidden, resume and reset when visible again
+    // This prevents the vault locking just because the user switched apps
+    function handleVisibility() {
+      if (!document.hidden) {
+        // Tab became visible - reset the inactivity timer fresh
+        resetInactivityTimer()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     resetInactivityTimer()
     return () => {
-      events.forEach(e => window.removeEventListener(e, resetInactivityTimer))
+      activityEvents.forEach(e => window.removeEventListener(e, resetInactivityTimer))
+      document.removeEventListener('visibilitychange', handleVisibility)
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     }
   }, [])
@@ -72,11 +85,9 @@ export function AuthProvider({ children }) {
       if (transitionTimer.current) clearTimeout(transitionTimer.current)
       transitionTimer.current = setTimeout(() => setTransitioning(false), 400)
 
-      // Always clear the session key on a new sign-in so the PIN prompt shows
-      // This covers Google OAuth redirects where the module may not have reloaded
-      // Only clear session key on actual NEW sign-in, not on session restoration
-      // Supabase fires SIGNED_IN on tab focus/restore - we must not lock the vault then
-      // A genuine new sign-in only happens when hadUser was false (no prior session)
+      // Only clear session key on actual NEW sign-in (user was not logged in before)
+      // SIGNED_IN fires on: fresh login, tab restore, token refresh
+      // We only want to clear on genuine new logins
       if (event === 'SIGNED_IN' && !hadUser.current) {
         clearSessionKey()
       }

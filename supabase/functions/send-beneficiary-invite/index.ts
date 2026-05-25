@@ -93,11 +93,11 @@ serve(async (req) => {
       .select('id, user_id, name, email, invite_token, status, resend_requested_at')
       .eq('id', beneficiaryId)
       .eq('user_id', user.id) // ownership check
-      .eq('status', 'invited')
+      .in('status', ['invited', 'email_confirmed'])
       .single()
 
     if (!beneficiary) {
-      return new Response(JSON.stringify({ error: 'Not found or already confirmed' }), { status: 404, headers: { ...hdrs, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Beneficiary not found' }), { status: 404, headers: { ...hdrs, 'Content-Type': 'application/json' } })
     }
 
     // Rate limit: 1 hour between resends (skip for initial send)

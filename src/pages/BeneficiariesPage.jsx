@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useBeneficiaries } from '../hooks/useBeneficiaries'
 import { useAuth } from '../context/AuthContext'
 import { PLANS } from '../lib/stripe'
@@ -35,11 +35,21 @@ function BenModal({ onClose, onSave }) {
           </div>
           <div>
             <label className="label">Relationship</label>
-            <input className="input" placeholder="e.g. Spouse, Son, Solicitor" value={form.relation} onChange={e => set('relation', e.target.value)} />
+            <ComboboxInput
+              value={form.relation}
+              onChange={v => set('relation', v)}
+              options={COMMON_RELATIONS}
+              placeholder="e.g. Spouse, Son, Solicitor"
+            />
             <label className="label" style={{ marginTop: 10 }}>Group (optional)</label>
-            <input className="input" placeholder="e.g. Family, Legal, Friends"
-              value={form.group_name || ''} onChange={e => set('group_name', e.target.value)}
-              maxLength={50} />
+            <ComboboxInput
+              value={form.group_name || ''}
+              onChange={v => set('group_name', v === 'None' ? '' : v)}
+              options={['None', ...Array.from(new Set((beneficiaries || []).map(b => b.group_name).filter(Boolean)))]}
+              placeholder="Select or create a group"
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 4 }}>Type to filter or create a new group. Leave blank for no group.</div>
+
           </div>
           <div>
             <label className="label">Email address *</label>
@@ -130,6 +140,84 @@ function BenModal({ onClose, onSave }) {
     </div>
   )
 }
+
+
+// Filterable combobox - type to filter, pick from list or keep typed value
+function ComboboxInput({ value, onChange, options, placeholder, allowNew = true }) {
+  const [open, setOpen]     = useState(false)
+  const [query, setQuery]   = useState(value || '')
+  const ref                 = useRef(null)
+
+  const filtered = options.filter(o =>
+    o.toLowerCase().includes(query.toLowerCase())
+  )
+
+  useEffect(() => {
+    setQuery(value || '')
+  }, [value])
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <input
+        className="input"
+        placeholder={placeholder}
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        autoComplete="off"
+      />
+      {open && (filtered.length > 0 || (allowNew && query)) && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
+          background: 'var(--navy-lt)', border: '1px solid var(--border-md)',
+          borderRadius: 'var(--r)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          maxHeight: 200, overflowY: 'auto', marginTop: 4,
+        }}>
+          {filtered.map((opt, i) => (
+            <button key={i} type="button" onClick={() => { onChange(opt); setQuery(opt); setOpen(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px',
+                background: 'transparent', border: 'none',
+                borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                color: 'var(--cream-dim)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--sans)' }}
+              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+            >{opt}</button>
+          ))}
+          {allowNew && query && !options.find(o => o.toLowerCase() === query.toLowerCase()) && (
+            <button type="button" onClick={() => { onChange(query); setOpen(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px',
+                background: 'rgba(201,168,76,0.06)', border: 'none',
+                color: 'var(--gold)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--sans)' }}>
+              + Use "{query}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const COMMON_RELATIONS = [
+  'Spouse', 'Partner', 'Civil partner',
+  'Son', 'Daughter', 'Child',
+  'Father', 'Mother', 'Parent',
+  'Brother', 'Sister', 'Sibling',
+  'Grandfather', 'Grandmother', 'Grandparent',
+  'Grandson', 'Granddaughter', 'Grandchild',
+  'Uncle', 'Aunt', 'Nephew', 'Niece', 'Cousin',
+  'Stepson', 'Stepdaughter', 'Stepparent',
+  'Friend', 'Close friend',
+  'Solicitor', 'Accountant', 'Financial advisor',
+  'Executor', 'Business partner', 'Carer', 'Other',
+]
 
 export default function BeneficiariesPage({ onNav }) {
   const { profile } = useAuth()
