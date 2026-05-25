@@ -3,11 +3,11 @@ import { Component } from 'react'
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { hasError: false, errorId: null, errorMsg: null }
+    this.state = { hasError: false, errorId: null, errorMsg: null, errorStack: null }
   }
 
   static getDerivedStateFromError() {
-    return { hasError: true, errorId: `err_${Date.now()}`, errorMsg: null }
+    return { hasError: true, errorId: `err_${Date.now()}`, errorMsg: null, errorStack: null }
   }
 
   componentDidCatch(error, info) {
@@ -15,7 +15,15 @@ export default class ErrorBoundary extends Component {
     console.error('Application error reference:', this.state.errorId)
     console.error('Error:', error?.message)
     console.error('Component:', info?.componentStack?.split('\n')[1]?.trim())
-    this.setState({ errorMsg: error?.message || 'Unknown error' })
+    this.setState({ errorMsg: error?.message || 'Unknown error', errorStack: error?.stack?.split('\n').slice(0,5).join('\n') })
+    // Store full stack for remote debugging
+    try {
+      window.__dr_error = {
+        message: error?.message,
+        stack: error?.stack,
+        component: info?.componentStack
+      }
+    } catch {}
     // Sentry integration (add when you sign up at sentry.io):
     // import * as Sentry from '@sentry/react'
     // Sentry.captureException(error, { extra: { errorId: this.state.errorId } })
@@ -46,6 +54,11 @@ export default class ErrorBoundary extends Component {
               {this.state.errorMsg && (
                 <div style={{ marginTop: 8, fontSize: 11, color: '#e07a52', fontFamily: 'monospace', wordBreak: 'break-word' }}>
                   {this.state.errorMsg}
+                </div>
+              )}
+              {this.state.errorStack && (
+                <div style={{ marginTop: 4, fontSize: 10, color: '#7a93aa', fontFamily: 'monospace', wordBreak: 'break-word', textAlign: 'left', maxHeight: 120, overflow: 'auto' }}>
+                  {this.state.errorStack}
                 </div>
               )}
             </div>
