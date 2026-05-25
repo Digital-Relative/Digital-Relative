@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -61,16 +61,13 @@ function AppInner() {
     })
   }, [])
 
-  // Reset pinReady if vault locks due to genuine inactivity (2hr timeout)
-  // This allows the PIN prompt to reappear after a real timeout
-  // Use a ref to track previous isLocked to avoid re-renders
-  const prevLockedRef = useRef(false)
+  // Reset pinReady if vault genuinely locks (2hr timeout)
+  // isLocked comes from useVaultLock polling hasSessionKey() every 2s
   useEffect(() => {
-    if (isLocked && !prevLockedRef.current && pinReady) {
+    if (isLocked && pinReady) {
       setPinReady(false)
     }
-    prevLockedRef.current = isLocked
-  }, [isLocked, pinReady])
+  }, [isLocked])
   // Sync navigation with browser history so back/forward buttons work
   const getPageFromUrl = () => {
     const params = new URLSearchParams(window.location.search)
