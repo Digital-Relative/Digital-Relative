@@ -10,6 +10,7 @@ import { searchCompanies, UK_COMPANIES } from '../lib/companies'
 import { validateVaultTitle } from '../lib/validation'
 import PasswordReveal from '../components/PasswordReveal'
 import ShareModal from '../components/ShareModal'
+import { decryptEntry } from '../lib/crypto'
 import toast from 'react-hot-toast'
 
 const REMINDER_PRESETS = [
@@ -432,12 +433,18 @@ export default function VaultPage({ onNav }) {
   const [decoyEntries, setDecoyEntries] = useState([])
   const [decoyLoading, setDecoyLoading] = useState(false)
 
-  // Load decoy entries when duress mode is active
+  // Load decoy entries when duress mode is active. Username/password/notes are
+  // AES-256-GCM encrypted with the duress key (which is the current session key
+  // in duress mode), so we run them through decryptEntry like real entries.
   useEffect(() => {
     if (!isDuressMode || !user?.id) return
     setDecoyLoading(true)
     supabase.from('decoy_entries').select('*').eq('user_id', user.id)
-      .then(({ data }) => { setDecoyEntries(data || []); setDecoyLoading(false) })
+      .then(async ({ data }) => {
+        const decrypted = await Promise.all((data || []).map(decryptEntry))
+        setDecoyEntries(decrypted)
+        setDecoyLoading(false)
+      })
       .catch(() => setDecoyLoading(false))
   }, [isDuressMode, user?.id])
 

@@ -372,3 +372,17 @@ create policy "Users can insert own audit log" on public.audit_log
   to authenticated
   with check (auth.uid() = user_id);
 
+-- ══════════════════════════════════════════════════════════════
+-- partner_links — requester cancels pending invite
+-- See supabase/migrations/partner-cancel-pending.sql for context.
+-- ══════════════════════════════════════════════════════════════
+
+drop policy if exists "Requester can cancel pending invite" on public.partner_links;
+create policy "Requester can cancel pending invite" on public.partner_links
+  for update
+  using (auth.uid() = requester_id and status = 'pending')
+  with check (
+    auth.uid() = requester_id
+    and status = 'unlinked'
+  );
+
