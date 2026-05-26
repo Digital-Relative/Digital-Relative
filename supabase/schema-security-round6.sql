@@ -386,3 +386,11 @@ create policy "Requester can cancel pending invite" on public.partner_links
     and status = 'unlinked'
   );
 
+-- ══════════════════════════════════════════════════════════════
+-- partner_links — invite_email for resend
+-- See supabase/migrations/partner-invite-email.sql for context.
+-- ══════════════════════════════════════════════════════════════
+
+alter table public.partner_links
+  add column if not exists invite_email text default null;
+

@@ -346,18 +346,34 @@ export default function CouplesPage({ onNav }) {
           <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
           <div style={{ fontWeight: 500, marginBottom: 6 }}>Waiting for your partner to accept</div>
           <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 16 }}>They'll see a notification in their dashboard and receive an email.</div>
-          <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}
-            onClick={async () => {
-              if (!confirm('Cancel this invite?\n\nYour partner will no longer be able to accept it. You can send a new invite afterwards if you change your mind.')) return
-              try {
-                await unlink(link.id)
-                toast.success('Invite cancelled')
-              } catch (err) {
-                toast.error(err.message || 'Could not cancel invite')
-              }
-            }}>
-            Cancel invite
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}
+              onClick={async () => {
+                try {
+                  const { error } = await supabase.functions.invoke('couples-invite', {
+                    body: { action: 'resend', linkId: link.id },
+                  })
+                  if (error) throw error
+                  toast.success('Invite resent')
+                } catch (err) {
+                  toast.error(err.message || 'Could not resend invite')
+                }
+              }}>
+              Resend invite
+            </button>
+            <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}
+              onClick={async () => {
+                if (!confirm('Cancel this invite?\n\nYour partner will no longer be able to accept it. You can send a new invite afterwards if you change your mind.')) return
+                try {
+                  await unlink(link.id)
+                  toast.success('Invite cancelled')
+                } catch (err) {
+                  toast.error(err.message || 'Could not cancel invite')
+                }
+              }}>
+              Cancel invite
+            </button>
+          </div>
         </div>
       )}
 

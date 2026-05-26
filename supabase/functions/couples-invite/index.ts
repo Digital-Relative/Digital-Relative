@@ -50,17 +50,75 @@ serve(async (req) => {
     const body = await req.json().catch(() => null)
     if (!body) throw new Error('Invalid request')
 
-    const { requesterId, partnerEmail } = body
-    if (!UUID_RE.test(requesterId))   throw new Error('Invalid request')
-    if (!EMAIL_RE.test(partnerEmail)) throw new Error('Invalid email address')
+    const action = body.action || 'invite'
 
-    // Verify JWT
+    // Verify JWT up-front so both branches share the check
     const jwt = authHeader.slice(7)
     const meRes = await fetchWithTimeout(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! },
     })
     if (!meRes.ok) throw new Error('Unauthorised')
     const me = await meRes.json()
+
+    // ── Resend branch ────────────────────────────────────────────────────────
+    if (action === 'resend') {
+      const { linkId } = body
+      if (!UUID_RE.test(linkId)) throw new Error('Invalid request')
+
+      const { data: link } = await supabase
+        .from('partner_links')
+        .select('id, requester_id, partner_id, status, invite_code, invite_email')
+        .eq('id', linkId)
+        .single()
+      if (!link)                                  throw new Error('Invite not found')
+      if (link.requester_id !== me.id)            throw new Error('Unauthorised')
+      if (link.status !== 'pending')              throw new Error('This invite is not pending')
+      if (!link.invite_email)                     throw new Error('Original email not on file — please cancel and re-invite')
+
+      const { data: reqProfile } = await supabase
+        .from('profiles').select('full_name').eq('id', link.requester_id).single()
+      const requesterName = reqProfile?.full_name || 'Your partner'
+
+      if (link.partner_id) {
+        // Existing user — re-send notification + email
+        const partnerAuthRes = await supabase.auth.admin.getUserById(link.partner_id)
+        const partnerEmail2  = partnerAuthRes.data?.user?.email || link.invite_email
+        const { data: partnerProfile } = await supabase
+          .from('profiles').select('full_name').eq('id', link.partner_id).single()
+
+        await supabase.from('notifications').insert([{
+          user_id: link.partner_id,
+          type: 'partner_link_request',
+          title: 'Couples vault invitation (resent)',
+          message: `${requesterName} resent their invitation to link vaults as partners on Digital Relative.`,
+          action_url: '/couples',
+          metadata: { link_id: link.id, requester_name: requesterName },
+        }])
+
+        await sendEmail({
+          to:      partnerEmail2,
+          subject: `${requesterName.replace(/[\r\n]/g, ' ').slice(0, 100)} resent your Couples vault invite`,
+          html:    partnerInviteEmail(partnerProfile?.full_name || 'there', requesterName, 'https://digitalrelative.co.uk/?page=couples'),
+        })
+      } else {
+        // Non-existing user — re-send the signup invite email
+        const inviteUrl = `https://digitalrelative.co.uk/?partner_invite=${link.invite_code}`
+        await sendEmail({
+          to:      link.invite_email,
+          subject: `${requesterName.replace(/[\r\n]/g, ' ').slice(0, 100)} resent your Digital Relative invitation`,
+          html:    partnerInviteEmail('there', requesterName, inviteUrl),
+        })
+      }
+
+      return new Response(JSON.stringify({ success: true, resent: true }), {
+        headers: { ...hdrs, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // ── Invite branch (default) ──────────────────────────────────────────────
+    const { requesterId, partnerEmail } = body
+    if (!UUID_RE.test(requesterId))   throw new Error('Invalid request')
+    if (!EMAIL_RE.test(partnerEmail)) throw new Error('Invalid email address')
     if (me.id !== requesterId) throw new Error('Unauthorised')
 
     // FIX EF-NEW-4: Verify requester has couples plan
@@ -129,7 +187,7 @@ serve(async (req) => {
       // Create link
       const { data: link, error: linkError } = await supabase
         .from('partner_links')
-        .insert([{ requester_id: requesterId, partner_id: partnerId, status: 'pending' }])
+        .insert([{ requester_id: requesterId, partner_id: partnerId, status: 'pending', invite_email: partnerEmail }])
         .select()
         .single()
 
@@ -183,7 +241,7 @@ serve(async (req) => {
       // FIX EF-NEW-3: Don't return invite_code to client
       // NEW-3 fix: check insert error before building URL
       const { data: newLink, error: linkInsertErr } = await supabase.from('partner_links')
-        .insert([{ requester_id: requesterId, status: 'pending' }])
+        .insert([{ requester_id: requesterId, status: 'pending', invite_email: partnerEmail }])
         .select('invite_code')
         .single()
 
