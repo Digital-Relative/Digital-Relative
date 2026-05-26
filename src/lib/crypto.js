@@ -400,6 +400,16 @@ export function hasTrustedDevice(userId) {
   return prfHasTrust(userId) || hasLegacyTrustedDevice(userId)
 }
 
+// Returns which trusted-device scheme is active for this user/device.
+//   'prf'    — bound to a platform credential (Touch ID / Windows Hello)
+//   'legacy' — encrypted with a localStorage-derived key (less secure)
+//   'none'   — device is not trusted
+export function getTrustedDeviceMode(userId) {
+  if (prfHasTrust(userId)) return 'prf'
+  if (hasLegacyTrustedDevice(userId)) return 'legacy'
+  return 'none'
+}
+
 // Opportunistically upgrade a legacy trusted device to PRF on next PIN entry.
 // No-op unless: legacy active, PRF not yet active, device supports PRF, and the
 // 24h cooldown after a previous cancellation has elapsed. On success, the legacy

@@ -13,7 +13,7 @@ serve(async (req) => {
   const hdrs: Record<string, string> = ALLOWED_ORIGINS.includes(origin)
     ? { 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
+        'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey' }
     : {}
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: hdrs })

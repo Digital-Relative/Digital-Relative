@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import ChangePasswordPage from './ChangePasswordPage'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { clearTrustedDevice, hasTrustedDevice } from '../lib/crypto'
+import { clearTrustedDevice, hasTrustedDevice, getTrustedDeviceMode } from '../lib/crypto'
 import { GenerateRecoveryCodes } from '../components/VaultRecoveryCodes'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import { WebAuthnSetup } from '../components/WebAuthnSetup'
@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(profile?.marketing_opt_in || false)
   const [phoneNumber, setPhoneNumber]       = useState(profile?.phone_number || '')
   const [deviceTrusted, setDeviceTrusted]   = useState(() => user ? hasTrustedDevice(user.id) : false)
+  const [trustMode, setTrustMode]           = useState(() => user ? getTrustedDeviceMode(user.id) : 'none')
   const [showRecoveryCodes, setShowRecoveryCodes] = useState(false)
   const [showWebAuthn, setShowWebAuthn] = useState(false)
   const [showContactModal, setShowContactModal] = useState(false)
@@ -143,6 +144,7 @@ export default function SettingsPage() {
     if (user?.id) {
       clearTrustedDevice(user.id)
       setDeviceTrusted(false)
+      setTrustMode('none')
       toast.success('Trusted device removed - PIN will be required next time')
     }
   }
@@ -495,8 +497,20 @@ export default function SettingsPage() {
         <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Trusted device</h3>
         {deviceTrusted ? (
           <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '4px 10px', borderRadius: 999, marginBottom: 10,
+              fontSize: 11, fontWeight: 500,
+              background: trustMode === 'prf' ? 'rgba(74,167,108,0.15)' : 'rgba(201,168,76,0.15)',
+              color:      trustMode === 'prf' ? '#7dd49e' : 'var(--gold)',
+              border: `1px solid ${trustMode === 'prf' ? 'rgba(74,167,108,0.35)' : 'rgba(201,168,76,0.35)'}`,
+            }}>
+              {trustMode === 'prf' ? '🔐 Biometric unlock' : '⚠️ Device-token unlock (legacy)'}
+            </div>
             <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
-              This device is trusted. Your vault PIN is saved and you are automatically unlocked when you sign in.
+              {trustMode === 'prf'
+                ? 'This device is trusted and your vault PIN is bound to your platform authenticator (Touch ID, Windows Hello, or similar). The key material never touches localStorage.'
+                : 'This device is trusted via a legacy localStorage-bound key. On your next PIN entry we will offer to upgrade to biometric unlock — accept the Touch ID / Windows Hello prompt to migrate.'}
             </p>
             <button className="btn-danger" style={{ fontSize: 12 }} onClick={revokeTrustedDevice}>
               Remove trust from this device
