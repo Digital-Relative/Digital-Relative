@@ -47,12 +47,12 @@ async function addressNowRetrieve(id) {
   const params = new URLSearchParams({
     Key: ADDRESSNOW_KEY,
     Id: id,
-    Field1Format: '{Line1}',   // house number/name + street
-    Field2Format: '{Line2}',   // locality/area (often blank)
-    Field3Format: '{Line3}',   // district (often blank)
-    Field4Format: '{Line4}',   // post town (e.g. Sheffield) - NOT {City}
-    Field5Format: '{Line5}',   // county (e.g. South Yorkshire)
-    Field6Format: '{PostalCode}', // postcode
+    Field1Format: '{BuildingNumber}{ }{ThoroughfareName}',
+    Field2Format: '{DependentThoroughfareName}',
+    Field3Format: '{DependentLocality}',
+    Field4Format: '{PostTown}',
+    Field5Format: '{CountyName}',
+    Field6Format: '{PostalCode}',
   })
   const res = await fetch(`https://api.addressnow.co.uk/capture/interactive/retrieve/v1.20/json3.ws?${params}`)
   const data = await res.json()
