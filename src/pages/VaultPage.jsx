@@ -441,7 +441,10 @@ export default function VaultPage({ onNav }) {
     setDecoyLoading(true)
     supabase.from('decoy_entries').select('*').eq('user_id', user.id)
       .then(async ({ data }) => {
-        const decrypted = await Promise.all((data || []).map(decryptEntry))
+        // decoy_entries lacks the _encrypted column that vault_entries has, so
+        // decryptEntry's early-return would skip them. Stamp the flag manually.
+        const stamped   = (data || []).map(e => ({ ...e, _encrypted: true }))
+        const decrypted = await Promise.all(stamped.map(decryptEntry))
         setDecoyEntries(decrypted)
         setDecoyLoading(false)
       })

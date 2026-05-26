@@ -50,12 +50,18 @@ export function usePartner() {
   }
 
   async function acceptLink(linkId) {
-    const { error } = await supabase
-      .from('partner_links')
-      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-      .eq('id', linkId)
-    if (error) throw error
+    // Goes through the couples-accept edge function (service role) so it can
+    // set couples_payer_id, upgrade the partner's plan, and refund their
+    // existing Single sub if any. Direct partner_links.update only handles
+    // status — partner would then be left on free/single and get bounced to
+    // Stripe again as if they needed to pay.
+    const { data, error } = await supabase.functions.invoke('couples-accept', {
+      body: { linkId },
+    })
+    if (error) throw new Error(error.message || 'Could not accept invite')
+    if (data?.error) throw new Error(data.error)
     await fetch()
+    return data
   }
 
   async function declineLink(linkId) {
