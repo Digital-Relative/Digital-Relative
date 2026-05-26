@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RedeemRecoveryCode } from './VaultRecoveryCodes'
 import { useAuth } from '../context/AuthContext'
-import { deriveKey, setSessionKey, getSessionKey, decrypt, saveTrustedPin, loadTrustedPin, hasTrustedDevice, clearTrustedDevice } from '../lib/crypto'
+import { deriveKey, setSessionKey, getSessionKey, decrypt, saveTrustedPin, loadTrustedPin, hasTrustedDevice, clearTrustedDevice, migrateTrustedDevice } from '../lib/crypto'
 import { supabase } from '../lib/supabase'
 import { formatPin } from '../lib/vaultPin'
 import toast from 'react-hot-toast'
@@ -122,7 +122,12 @@ export default function VaultPinEntry({ onUnlocked, onSignOut }) {
 
       setSessionKey(key)
       if (trustDevice) {
-        await saveTrustedPin(pin, user.id)
+        await saveTrustedPin(pin, user.id, user.email)
+      } else {
+        // Silently upgrade an existing legacy trusted device to PRF (Touch ID /
+        // Windows Hello). Fire-and-forget so unlock isn't blocked by the
+        // biometric prompt; the migration internally defers 24h on cancel.
+        migrateTrustedDevice(pin, user.id, user.email).catch(() => {})
       }
       toast.success('Vault unlocked')
       onUnlocked()

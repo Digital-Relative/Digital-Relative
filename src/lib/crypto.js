@@ -179,13 +179,27 @@ export async function decryptEntry(entry) {
  */
 
 // ── Trusted device — optional PIN-free auto-unlock ──────────────────────────
-// Stores the vault PIN encrypted with a device-specific key in localStorage.
-// The device key is derived from a random token stored in localStorage.
-// Clearing localStorage (or user revoking trust) removes the ability to auto-unlock.
-// The PIN is NEVER stored in plaintext.
+// Preferred scheme: the device key is derived from a WebAuthn PRF (Pseudo-Random
+// Function) extension output, which is bound to a platform credential (Touch ID,
+// Windows Hello, etc.) in the OS keystore. The encrypted PIN sits in localStorage
+// but the key material does not — recovering the PIN requires the authenticator.
+//
+// Legacy fallback (kept so existing trusted devices keep working until migration):
+// the device key is derived from a random token in localStorage, then PBKDF2'd
+// with the userId. Lower security — both inputs sit in the same storage layer —
+// but it is the only option on browsers/authenticators without PRF support.
+//
+// On every successful PIN entry, `migrateTrustedDevice` opportunistically upgrades
+// legacy users to PRF without forcing a PIN re-entry. See VaultPinEntry.
 
 const TRUSTED_DEVICE_TOKEN_KEY = 'dr_device_token'
-const TRUSTED_DEVICE_PIN_KEY   = 'dr_trusted_pin'  // prefix, suffixed with userId
+const TRUSTED_DEVICE_PIN_KEY   = 'dr_trusted_pin'    // legacy ciphertext, suffixed with userId
+const PRF_CREDENTIAL_KEY       = 'dr_prf_cred'       // suffixed with userId — stores credential ID
+const PRF_PIN_KEY              = 'dr_prf_pin'        // suffixed with userId — stores PRF-encrypted PIN
+const PRF_UNSUPPORTED_KEY      = 'dr_prf_unsupported' // device-wide flag: PRF tried, authenticator did not enable
+const PRF_DEFER_KEY            = 'dr_prf_defer'      // suffixed with userId — defer migration until this timestamp
+const PRF_SALT                 = new TextEncoder().encode('prf-trusted-device-v1')
+const PRF_DEFER_MS             = 24 * 60 * 60 * 1000 // 24h
 
 function getDeviceToken() {
   let token = localStorage.getItem(TRUSTED_DEVICE_TOKEN_KEY)
@@ -209,33 +223,167 @@ async function getDeviceKey(userId) {
   )
 }
 
-export async function saveTrustedPin(pin, userId) {
+// ── PRF (WebAuthn) helpers ────────────────────────────────────────────────
+
+function b64urlToBuf(b64) {
+  const padded  = b64.replace(/-/g, '+').replace(/_/g, '/')
+  const padding = '='.repeat((4 - padded.length % 4) % 4)
+  return Uint8Array.from(atob(padded + padding), c => c.charCodeAt(0))
+}
+
+function bufToB64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+async function prfEnroll(userId, userEmail) {
+  if (!window.PublicKeyCredential) return null
+  if (localStorage.getItem(PRF_UNSUPPORTED_KEY) === 'true') return null
+  try {
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp:        { name: 'Digital Relative', id: window.location.hostname },
+        user: {
+          id:          new TextEncoder().encode(userId),
+          name:        userEmail || userId,
+          displayName: 'Trusted device key',
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7   },
+          { type: 'public-key', alg: -257 },
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification:        'required',
+          residentKey:             'preferred',
+        },
+        extensions: { prf: {} },
+        attestation: 'none',
+        timeout:     60000,
+      },
+    })
+    if (!cred) return null
+    const ext = cred.getClientExtensionResults?.()
+    if (!ext?.prf?.enabled) {
+      // Authenticator created the credential but PRF was not enabled — flag the
+      // device so we stop offering migration on this browser/authenticator.
+      localStorage.setItem(PRF_UNSUPPORTED_KEY, 'true')
+      return null
+    }
+    const credId = bufToB64url(cred.rawId)
+    localStorage.setItem(PRF_CREDENTIAL_KEY + ':' + userId, credId)
+    return credId
+  } catch {
+    // User cancelled, timeout, or transient error. Do not flag as unsupported.
+    return null
+  }
+}
+
+async function prfDeriveKey(credentialId) {
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge:        crypto.getRandomValues(new Uint8Array(32)),
+      timeout:          60000,
+      userVerification: 'required',
+      allowCredentials: [{ type: 'public-key', id: b64urlToBuf(credentialId) }],
+      extensions:       { prf: { eval: { first: PRF_SALT } } },
+    },
+  })
+  if (!assertion) throw new Error('Assertion cancelled')
+  const prfOutput = assertion.getClientExtensionResults?.().prf?.results?.first
+  if (!prfOutput) throw new Error('PRF output missing')
+  return crypto.subtle.importKey(
+    'raw', prfOutput, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  )
+}
+
+async function prfSavePin(pin, userId, userEmail) {
+  let credId = localStorage.getItem(PRF_CREDENTIAL_KEY + ':' + userId)
+  if (!credId) {
+    credId = await prfEnroll(userId, userEmail)
+    if (!credId) return false
+  }
+  const key = await prfDeriveKey(credId).catch(() => null)
+  if (!key) return false
+  const iv     = crypto.getRandomValues(new Uint8Array(12))
+  const cipher = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(pin)
+  )
+  localStorage.setItem(PRF_PIN_KEY + ':' + userId, JSON.stringify({
+    iv:   Array.from(iv),
+    data: Array.from(new Uint8Array(cipher)),
+  }))
+  return true
+}
+
+async function prfLoadPin(userId) {
+  const credId = localStorage.getItem(PRF_CREDENTIAL_KEY + ':' + userId)
+  if (!credId) return null
+  const stored = localStorage.getItem(PRF_PIN_KEY + ':' + userId)
+  if (!stored) return null
+  try {
+    const { iv, data } = JSON.parse(stored)
+    const key   = await prfDeriveKey(credId)
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data)
+    )
+    return new TextDecoder().decode(plain)
+  } catch {
+    // Credential gone (authenticator wiped, user revoked OS-level credential)
+    // or user cancelled. Clear stale state so next unlock falls back cleanly.
+    localStorage.removeItem(PRF_CREDENTIAL_KEY + ':' + userId)
+    localStorage.removeItem(PRF_PIN_KEY + ':' + userId)
+    return null
+  }
+}
+
+function prfHasTrust(userId) {
+  return !!(localStorage.getItem(PRF_CREDENTIAL_KEY + ':' + userId)
+         && localStorage.getItem(PRF_PIN_KEY + ':' + userId))
+}
+
+function hasLegacyTrustedDevice(userId) {
+  return !!localStorage.getItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+}
+
+// ── Public trusted-device API ─────────────────────────────────────────────
+
+export async function saveTrustedPin(pin, userId, userEmail) {
+  // Prefer PRF. Fall back to legacy scheme on any PRF failure.
+  const prfOk = await prfSavePin(pin, userId, userEmail).catch(() => false)
+  if (prfOk) {
+    // Drop any leftover legacy ciphertext for this user.
+    localStorage.removeItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+    localStorage.removeItem(PRF_DEFER_KEY + ':' + userId)
+    return true
+  }
   try {
     const enc    = new TextEncoder()
     const devKey = await getDeviceKey(userId)
     const iv     = crypto.getRandomValues(new Uint8Array(12))
-    const cipher = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv }, devKey, enc.encode(pin)
-    )
-    const stored = JSON.stringify({
+    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, devKey, enc.encode(pin))
+    localStorage.setItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId, JSON.stringify({
       iv:   Array.from(iv),
       data: Array.from(new Uint8Array(cipher)),
-    })
-    localStorage.setItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId, stored)
+    }))
     return true
   } catch { return false }
 }
 
 export async function loadTrustedPin(userId) {
+  // Try PRF first.
+  const prfPin = await prfLoadPin(userId).catch(() => null)
+  if (prfPin !== null) return prfPin
+
+  // Fall back to legacy.
   try {
     const stored = localStorage.getItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
     if (!stored) return null
     const { iv, data } = JSON.parse(stored)
     const devKey = await getDeviceKey(userId)
     const plain  = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: new Uint8Array(iv) },
-      devKey,
-      new Uint8Array(data)
+      { name: 'AES-GCM', iv: new Uint8Array(iv) }, devKey, new Uint8Array(data)
     )
     return new TextDecoder().decode(plain)
   } catch { return null }
@@ -243,10 +391,37 @@ export async function loadTrustedPin(userId) {
 
 export function clearTrustedDevice(userId) {
   localStorage.removeItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+  localStorage.removeItem(PRF_CREDENTIAL_KEY + ':' + userId)
+  localStorage.removeItem(PRF_PIN_KEY + ':' + userId)
+  localStorage.removeItem(PRF_DEFER_KEY + ':' + userId)
 }
 
 export function hasTrustedDevice(userId) {
-  return !!localStorage.getItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+  return prfHasTrust(userId) || hasLegacyTrustedDevice(userId)
+}
+
+// Opportunistically upgrade a legacy trusted device to PRF on next PIN entry.
+// No-op unless: legacy active, PRF not yet active, device supports PRF, and the
+// 24h cooldown after a previous cancellation has elapsed. On success, the legacy
+// ciphertext is replaced with a PRF-bound one — the user never re-types the PIN.
+export async function migrateTrustedDevice(pin, userId, userEmail) {
+  if (!hasLegacyTrustedDevice(userId)) return
+  if (prfHasTrust(userId)) return
+  if (!window.PublicKeyCredential) return
+  if (localStorage.getItem(PRF_UNSUPPORTED_KEY) === 'true') return
+  const deferUntil = parseInt(localStorage.getItem(PRF_DEFER_KEY + ':' + userId) || '0', 10)
+  if (Date.now() < deferUntil) return
+
+  const ok = await prfSavePin(pin, userId, userEmail).catch(() => false)
+  if (ok) {
+    localStorage.removeItem(TRUSTED_DEVICE_PIN_KEY + ':' + userId)
+    localStorage.removeItem(PRF_DEFER_KEY + ':' + userId)
+  } else {
+    // User cancelled or transient error. Defer next attempt so we don't prompt
+    // on every unlock. PRF_UNSUPPORTED_KEY is set inside prfEnroll for the
+    // "authenticator doesn't do PRF" case and stops migration permanently.
+    localStorage.setItem(PRF_DEFER_KEY + ':' + userId, String(Date.now() + PRF_DEFER_MS))
+  }
 }
 
 // ── Vault PIN recovery codes ────────────────────────────────────────────────
