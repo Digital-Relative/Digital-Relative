@@ -81,16 +81,30 @@ async function startSeparationIfPayer(supabase: any, userId: string) {
     separated_at:        new Date().toISOString(),
   }).eq('id', link.id)
 
-  const otherId = link.requester_id === userId ? link.partner_id : link.requester_id
+  const otherId  = link.requester_id === userId ? link.partner_id : link.requester_id
+  const deadlineStr = deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+
+  // Notify both partners. The payer is notified too because their plan
+  // change was made in Stripe (not via the in-app Unlink button), so they
+  // may not realise the Couples link is now winding down — without this
+  // they'd see the banner next time they open the app with no context.
+  const rows: any[] = [{
+    user_id:    userId,
+    type:       'separation_pending',
+    title:      'Couples plan ended — shared vault wind-down started',
+    message:    `Your Stripe subscription is no longer the Couples plan, so your shared vault link will end on ${deadlineStr}. Visit the Couples page to review which shared entries you created should move to your private vault.`,
+    action_url: '/?page=couples',
+  }]
   if (otherId) {
-    await supabase.from('notifications').insert([{
+    rows.push({
       user_id:    otherId,
       type:       'separation_pending',
       title:      'Your Couples plan is ending',
-      message:    `Your partner's Couples subscription has changed. You have 14 days to review the shared vault and choose which entries you created should move to your private vault. After ${deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}, the shared vault will be detached and you'll be moved to the Free plan.`,
+      message:    `Your partner's Couples subscription has changed. You have 14 days to review the shared vault and choose which entries you created should move to your private vault. After ${deadlineStr}, the shared vault will be detached and you'll be moved to the Free plan.`,
       action_url: '/?page=couples',
-    }]).catch(() => {})
+    })
   }
+  await supabase.from('notifications').insert(rows).catch(() => {})
 }
 
 serve(async (req) => {

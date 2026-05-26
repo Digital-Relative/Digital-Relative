@@ -686,7 +686,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
             </div>
             <div>
               <div style={{ fontSize: 11, color: TEXT_SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Legal</div>
-              {[['/?page=privacy','Privacy policy'],['/?page=terms','Terms of service'],['mailto:security@digitalrelative.co.uk','Security']].map(([href,label]) => (
+              {[['/privacy','Privacy policy'],['/terms','Terms of service'],['mailto:security@digitalrelative.co.uk','Security']].map(([href,label]) => (
                 <div key={label} style={{ marginBottom: 8 }}>
                   <a href={href} style={{ fontSize: 13, color: TEXT_SUB, textDecoration: 'none' }}>{label}</a>
                 </div>
@@ -695,7 +695,7 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
           </div>
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 24, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ fontSize: 12, color: TEXT_SUB }}>
-              2024 Digital Relative Ltd. All rights reserved.
+              © {new Date().getFullYear()} Digital Relative Ltd. All rights reserved.
             </div>
             <div style={{ fontSize: 12, color: TEXT_SUB }}>
               ICO Registration: pending · All data stored in UK (London)

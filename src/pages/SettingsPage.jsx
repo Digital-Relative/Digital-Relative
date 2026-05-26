@@ -523,6 +523,40 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Cookie preferences */}
+      <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Cookie preferences</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.7 }}>
+          {(() => {
+            const c = (() => { try { return localStorage.getItem('dr_cookie_consent') } catch { return null } })()
+            if (c === 'accepted') return 'You accepted non-essential cookies. The Crisp support chat widget is loaded.'
+            if (c === 'rejected') return 'You declined non-essential cookies. Only strictly-necessary cookies are set. The Crisp chat widget is not loaded.'
+            return "You haven't made a choice yet."
+          })()}
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+            try { localStorage.setItem('dr_cookie_consent', 'rejected') } catch {}
+            toast.success('Non-essential cookies declined. Reload to apply.')
+          }}>
+            Reject non-essential
+          </button>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+            try { localStorage.setItem('dr_cookie_consent', 'accepted') } catch {}
+            window.dispatchEvent(new CustomEvent('dr_cookie_accepted'))
+            toast.success('Non-essential cookies accepted')
+          }}>
+            Accept all
+          </button>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+            try { localStorage.removeItem('dr_cookie_consent') } catch {}
+            toast('Preference cleared — banner will reappear on next public page', { icon: 'ℹ️' })
+          }}>
+            Clear preference
+          </button>
+        </div>
+      </div>
+
       {/* Duress PIN */}
       <div className="fade-up-3 card-static" style={{ marginBottom: 18 }}>
         <h3 style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>Duress PIN</h3>

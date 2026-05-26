@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import CookieBanner from './components/CookieBanner'
@@ -14,30 +14,48 @@ import MfaSetup from './components/MfaSetup'
 import MfaVerify from './components/MfaVerify'
 import VaultPinEntry from './components/VaultPinEntry'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// Eagerly loaded — first paint critical (landing/auth/unlock flow + dashboard
+// which is the default authenticated screen).
 import AuthPage from './pages/AuthPage'
 import LandingPage from './pages/LandingPage'
 import Dashboard from './pages/Dashboard'
-import VaultPage from './pages/VaultPage'
-import BeneficiariesPage from './pages/BeneficiariesPage'
-import CheckInPage from './pages/CheckInPage'
-import PlanPage from './pages/PlanPage'
-import SettingsPage from './pages/SettingsPage'
-import AfterIAmGonePage from './pages/AfterIAmGonePage'
-import DocumentsPage from './pages/DocumentsPage'
-import CouplesPage from './pages/CouplesPage'
-import FamilyPage from './pages/FamilyPage'
-import SharedLinkPage from './pages/SharedLinkPage'
-import SharedLinksPage from './pages/SharedLinksPage'
-import EmergencyAccessPage from './pages/EmergencyAccessPage'
-import AdminReviewPage from './pages/AdminReviewPage'
-import BeneficiaryPortal from './pages/BeneficiaryPortal'
-import BeneficiaryDashboard from './pages/BeneficiaryDashboard'
-import AboutPage from './pages/AboutPage'
-import PrivacyPage from './pages/PrivacyPage'
-import TermsPage from './pages/TermsPage'
-import BlogPage from './pages/BlogPage'
+
+// Code-split — only loaded when the user navigates to them. Reduces the
+// initial bundle from ~960kB to a smaller core + per-route chunks.
+const VaultPage           = lazy(() => import('./pages/VaultPage'))
+const BeneficiariesPage   = lazy(() => import('./pages/BeneficiariesPage'))
+const CheckInPage         = lazy(() => import('./pages/CheckInPage'))
+const PlanPage            = lazy(() => import('./pages/PlanPage'))
+const SettingsPage        = lazy(() => import('./pages/SettingsPage'))
+const AfterIAmGonePage    = lazy(() => import('./pages/AfterIAmGonePage'))
+const DocumentsPage       = lazy(() => import('./pages/DocumentsPage'))
+const CouplesPage         = lazy(() => import('./pages/CouplesPage'))
+const FamilyPage          = lazy(() => import('./pages/FamilyPage'))
+const SharedLinkPage      = lazy(() => import('./pages/SharedLinkPage'))
+const SharedLinksPage     = lazy(() => import('./pages/SharedLinksPage'))
+const EmergencyAccessPage = lazy(() => import('./pages/EmergencyAccessPage'))
+const AdminReviewPage     = lazy(() => import('./pages/AdminReviewPage'))
+const BeneficiaryPortal   = lazy(() => import('./pages/BeneficiaryPortal'))
+const BeneficiaryDashboard= lazy(() => import('./pages/BeneficiaryDashboard'))
+const AboutPage           = lazy(() => import('./pages/AboutPage'))
+const PrivacyPage         = lazy(() => import('./pages/PrivacyPage'))
+const TermsPage           = lazy(() => import('./pages/TermsPage'))
+const BlogPage            = lazy(() => import('./pages/BlogPage'))
+const LegalPage           = lazy(() => import('./pages/LegalPage'))
+
 import './index.css'
 import { isRTL } from './lib/i18n'
+
+// Loading fallback for lazy-loaded routes — matches the existing brand spinner
+// shown during initial app load so users don't see a jarring flash.
+function RouteFallback() {
+  return (
+    <div style={{ minHeight: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span className="spinner" />
+    </div>
+  )
+}
 
 // Check if this is a beneficiary portal access
 const isBeneficiaryRoute = window.location.pathname === '/beneficiary' &&
@@ -189,6 +207,13 @@ function AppInner() {
     }
   }, [selectedPlan, pinReady, mfaVerified, user])
 
+  // Legal routes — reachable regardless of auth state. Render before the
+  // loading spinner so the cookie banner's link to /privacy always works,
+  // even if the user is mid-session-restore.
+  const _path = window.location.pathname
+  if (_path === '/privacy' || _path === '/privacy/') return <Suspense fallback={<RouteFallback />}><LegalPage kind="privacy" onBack={() => { window.location.href = '/' }} /></Suspense>
+  if (_path === '/terms'   || _path === '/terms/')   return <Suspense fallback={<RouteFallback />}><LegalPage kind="terms"   onBack={() => { window.location.href = '/' }} /></Suspense>
+
   if (loading || transitioning) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--navy)' }}>
@@ -276,7 +301,9 @@ function AppInner() {
             </button>
           </div>
         )}
-        {renderPage()}
+        <Suspense fallback={<RouteFallback />}>
+          {renderPage()}
+        </Suspense>
       </main>
     </div>
   )
@@ -286,7 +313,9 @@ export default function App() {
   if (isEmergencyRoute) {
     return (
       <ErrorBoundary>
-        <EmergencyAccessPage />
+        <Suspense fallback={<RouteFallback />}>
+          <EmergencyAccessPage />
+        </Suspense>
       </ErrorBoundary>
     )
   }
@@ -294,7 +323,9 @@ export default function App() {
   if (isAdminRoute) {
     return (
       <ErrorBoundary>
-        <AdminReviewPage />
+        <Suspense fallback={<RouteFallback />}>
+          <AdminReviewPage />
+        </Suspense>
       </ErrorBoundary>
     )
   }
@@ -303,7 +334,9 @@ export default function App() {
   if (isShareRoute) {
     return (
       <ErrorBoundary>
-        <SharedLinkPage />
+        <Suspense fallback={<RouteFallback />}>
+          <SharedLinkPage />
+        </Suspense>
       </ErrorBoundary>
     )
   }
@@ -312,7 +345,9 @@ export default function App() {
   if (isBeneficiaryRoute) {
     return (
       <ErrorBoundary>
-        <BeneficiaryPortal />
+        <Suspense fallback={<RouteFallback />}>
+          <BeneficiaryPortal />
+        </Suspense>
         <Toaster position="bottom-right" toastOptions={{
           style: { background: '#0f1e30', color: '#dde5ee', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'DM Sans',sans-serif", fontSize: 13 },
         }} />
