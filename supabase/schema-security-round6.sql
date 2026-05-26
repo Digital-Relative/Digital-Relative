@@ -352,3 +352,21 @@ create policy "Users can update own profile" on public.profiles
     -- Note: duress_pin_set intentionally NOT locked here (users legitimately set it)
   );
 
+-- ══════════════════════════════════════════════════════════════
+-- audit_log INSERT policy
+-- ──────────────────────────────────────────────────────────────
+-- The client writes its own audit events (sign-in, vault_entry_*,
+-- beneficiary_*, checked_in) via supabase.from('audit_log').insert(...)
+-- with the authenticated user's JWT. Without this policy those
+-- inserts are silently denied by RLS. The WITH CHECK ensures a user
+-- can only attribute events to themselves.
+-- Service-role inserts (from edge functions) bypass RLS and are
+-- unaffected.
+-- ══════════════════════════════════════════════════════════════
+
+drop policy if exists "Users can insert own audit log" on public.audit_log;
+create policy "Users can insert own audit log" on public.audit_log
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
