@@ -31,3 +31,17 @@ dist-ssr
 
 # Supabase local config
 supabase/.temp/
+
+# Ad-hoc screenshots / debugging artifacts dropped at repo root
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+# But keep anything intentional under public/ or docs/
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+!docs/**/*.jpeg
