@@ -261,7 +261,7 @@ export default function PlanPage() {
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.7 }}>
-                  Switching plan in Stripe is <strong style={{ color: 'var(--text)' }}>prorated automatically</strong>. The unused {renewalDate ? <>{currentName} time (you're paid through <strong style={{ color: 'var(--text)' }}>{renewalDate}</strong>) </> : `${currentName} time `}becomes account credit that Stripe applies to your upcoming {targetName} invoices — so you won't be charged for {targetName} until that credit runs out. No cash refund, but no double-charge either. Stripe will show you the exact figures on the next screen before you confirm.
+                  You'll keep {currentName} until <strong style={{ color: 'var(--text)' }}>{renewalDate || 'your renewal date'}</strong> — you've already paid for that time. On that date, your plan switches to {targetName} and Stripe charges you the {targetName} rate from then onwards. No immediate change, no double-charge, no cash refund for the {currentName} time you've used.
                 </div>
               )}
             </div>
