@@ -394,3 +394,15 @@ create policy "Requester can cancel pending invite" on public.partner_links
 alter table public.partner_links
   add column if not exists invite_email text default null;
 
+-- ══════════════════════════════════════════════════════════════
+-- RLS drift fix — drop orphaned policies
+-- See supabase/migrations/rls-drift-fix.sql for context.
+-- These should already have been dropped by round 5 but were
+-- still present in the deployed dashboard.
+-- ══════════════════════════════════════════════════════════════
+
+drop policy if exists "Partners can access shared entries" on public.vault_entries;
+drop policy if exists "Users can manage own entries"      on public.vault_entries;
+drop policy if exists "Beneficiaries can confirm via token" on public.beneficiaries;
+drop policy if exists "Beneficiaries confirm own invite"   on public.beneficiaries;
+
