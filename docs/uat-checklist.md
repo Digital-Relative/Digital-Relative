@@ -2,7 +2,9 @@
 
 Test against the live site (`https://digitalrelative.co.uk`) unless otherwise noted. Tick boxes as you go. Flag failures with the section number + a one-line repro.
 
-Estimated effort: 6–8 hours for full coverage with edge-case probing.
+Estimated effort: 8–10 hours for full coverage with edge-case probing.
+
+**Last refreshed:** 2026-05-26 — covers PRF trusted-device, Couples accept/cancel/resend, 14-day separation grace period, downgrade billing modal, AddressNow proxy, decoy decrypt fix, audit-log RLS, partner profile RLS.
 
 ---
 
@@ -312,3 +314,185 @@ These were flagged by static analysis; verify in the browser.
 - [ ] Admin reviews + approves
 - [ ] After hold period, executor receives vault access
 - [ ] Vault contents readable per access tier configured
+
+---
+
+## 13. AddressNow proxy (added 2026-05-26)
+
+### Happy path — server-side key
+- [ ] On any address-lookup field (Family, Vault, After-I-Am-Gone), type "22 Hanover Street" → dropdown appears
+- [ ] DevTools → Network: confirm the request goes to `…supabase.co/functions/v1/addressnow-proxy`, **not** directly to `api.addressnow.co.uk` — and no `Key=` parameter is visible in the URL
+- [ ] Source view of the bundle (`view-source:` or DevTools → Sources): grep for "addressnow" — should appear only as `'addressnow-proxy'`, never as a hard-coded API key
+
+### Business name parsing
+- [ ] Search a UK business (e.g. "Grant McGregor Ltd, Edinburgh") → select a result
+- [ ] **Business name field** populates with the company
+- [ ] **Street address** populates with "22 Hanover Street" (or equivalent)
+- [ ] **Town** populates correctly
+- [ ] **Postcode** populates correctly
+- [ ] Save the entry, reopen → all fields persist with the same values
+
+### Edge cases
+- [ ] Search a residential address (no company) → Business name stays empty, other fields populate
+- [ ] Search a building with multiple flats → drill-down (container) → individual unit selectable
+- [ ] Quick consecutive keystrokes → only one debounced API call (200ms)
+- [ ] Type "SW1A 1AA" (postcode-only) → results appear
+- [ ] Block the proxy in Network tab → graceful fallback to manual entry (no broken UI)
+
+---
+
+## 14. PRF biometric trusted device (added 2026-05-26)
+
+### New-user opt-in (supported authenticator)
+- [ ] Sign in on a device with PRF support (modern Touch ID Mac, Windows Hello on TPM 2.0 + Chrome/Edge 116+)
+- [ ] On the PIN screen, tick "Trust this device", enter PIN
+- [ ] OS biometric prompt appears (Touch ID / Windows Hello)
+- [ ] Approve → toast "Upgraded to biometric unlock"
+- [ ] Settings → Trusted device card shows **green** "🔐 Biometric unlock"
+- [ ] Sign out, sign back in → biometric prompt on PIN screen → approve → vault auto-unlocks
+
+### Legacy → PRF migration
+- [ ] Set up trust the old way (legacy localStorage scheme) — sign out + sign in once without PRF support
+- [ ] Sign back in on a PRF-capable browser → after PIN entry, biometric prompt appears for migration
+- [ ] Approve → toast "Upgraded to biometric unlock", legacy ciphertext removed from localStorage
+- [ ] Verify: DevTools → Console: `Object.keys(localStorage).filter(k => k.startsWith('dr_'))` shows `dr_prf_cred:…` + `dr_prf_pin:…`, no `dr_trusted_pin:…`
+
+### Unsupported authenticator
+- [ ] On a browser/device without PRF (older Edge, Linux Firefox), attempt the migration
+- [ ] Credential creation prompt may appear → after dismiss or completion, the `dr_prf_unsupported = true` flag should be set in localStorage
+- [ ] Subsequent PIN entries do **not** re-prompt for biometric
+- [ ] Settings → Trusted device card shows **gold** "⚠️ Device-token unlock (legacy)"
+
+### Deferral after cancel
+- [ ] PIN entry → biometric prompt appears → **cancel** the prompt
+- [ ] Confirm `dr_prf_defer:<userId>` is set to a timestamp ~24h ahead
+- [ ] Next sign-in within 24h: no biometric prompt
+- [ ] After the deferral expires (manually edit the timestamp in DevTools): biometric prompt reappears
+
+### Revocation
+- [ ] Settings → Trusted device → Remove trust from this device
+- [ ] Confirm all `dr_*` PRF localStorage entries cleared
+- [ ] Sign out + sign in → PIN required, no biometric prompt
+
+---
+
+## 15. Duress PIN flow (fixed 2026-05-26)
+
+- [ ] Settings → Duress PIN → set a 6-digit duress PIN
+- [ ] Add a few decoy entries to populate the decoy vault
+- [ ] Sign out
+- [ ] Sign back in, enter your **duress** PIN
+- [ ] Vault unlocks → decoy entries visible **with readable titles AND decrypted usernames/passwords/notes** (no base64 ciphertext)
+- [ ] DevTools → Network: `duress-alert` edge function call fires (status 200)
+- [ ] DevTools → Application → sessionStorage: `dr_duress_active = '1'`
+- [ ] Real vault entries are **not** visible
+- [ ] Sign out + sign in with **real** PIN → real vault appears, decoy entries hidden
+
+### Trusted-device interaction
+- [ ] With duress PIN configured, sign in: auto-unlock is **disabled** (no biometric prompt on page load)
+- [ ] PIN form appears every sign-in — this is by design so duress is always a valid escape
+
+---
+
+## 16. Couples plan end-to-end (extensive changes 2026-05-26)
+
+### Invite (account A, requester)
+- [ ] A is on Couples plan, no active partner
+- [ ] Couples vault page → "Invite partner" → enter B's email → Send
+- [ ] If B already has an account: A sees "Waiting for partner to accept" card with **Cancel invite** and **Resend invite** buttons
+- [ ] If B does not have an account: A sees "Invite sent to … — they'll receive an email"
+
+### Cancel invite (account A)
+- [ ] On the pending card, click **Cancel invite** → confirm → toast "Invite cancelled"
+- [ ] Partner_links row goes to `unlinked` (verify in Supabase)
+- [ ] UI flips back to "Invite partner" empty state
+
+### Resend invite (account A, fresh invite only)
+- [ ] Send a new invite (after `partner-invite-email.sql` migration applied)
+- [ ] On the pending card, click **Resend invite** → toast "Invite resent"
+- [ ] Partner B receives a new email + new in-app notification
+- [ ] Resend on a pre-migration invite (`invite_email` null) → toast "Original email not on file — please cancel and re-invite"
+
+### Accept (account B)
+- [ ] B has free plan, receives invite email + in-app notification
+- [ ] B signs in → notification visible → click → lands on Couples page
+- [ ] B clicks **Accept** → no Stripe checkout prompted
+- [ ] B's `profile.plan` → `'couples'` (verify in Supabase)
+- [ ] `partner_links.couples_payer_id` → set to A's id (verify in Supabase)
+- [ ] If B had an active Single subscription: Stripe sub cancelled, refund row appears in `refunds` table with `reason='couples_acceptance'`
+- [ ] B sees the active Couples vault UI with partner card showing A's name
+
+### Active link — both users
+- [ ] Each user sees the partner's full name on the partner card (RLS partners-view-profile working)
+- [ ] Sharing toggle: turn on → partner sees your private vault read-only
+- [ ] Sharing toggle: turn off → partner sees "vault private"
+- [ ] Shared vault tab: + Add button visible top-right, count visible
+- [ ] Create a shared entry from A → B sees it
+- [ ] Create a shared entry from B → A sees it
+- [ ] Partner's vault tab: shared entries from the other user with "🔐 PIN required" badge on those with stored passwords
+
+### Separation grace period — initiation (account A)
+- [ ] Couples page → Unlink → confirm modal → toast "Separation started"
+- [ ] Page shows red banner: "Couples plan ending in 14 days"
+- [ ] A's `partner_links.status` → `'separation_pending'`, `separation_deadline` ≈ now+14d
+- [ ] B receives in-app notification "Your Couples plan is ending"
+
+### Separation grace period — review (both users)
+- [ ] Click **Review shared entries** button on the banner
+- [ ] Modal shows only entries the current user created (others not visible)
+- [ ] Each entry: Keep / Discard buttons → click each, choices persist
+- [ ] Close + reopen modal → choices retained
+- [ ] B does the same review for their own entries
+- [ ] Both users still have read access to all shared entries during the grace period (vault still works)
+
+### Separation grace period — finalize
+- [ ] In Supabase, manually update `partner_links.separation_deadline` to a past timestamp (e.g. `now() - interval '1 minute'`)
+- [ ] Refresh the Couples page → toast "Couples link finalized…"
+- [ ] `partner_links.status` → `'unlinked'`
+- [ ] Entries marked Keep → `is_shared = false`, `partner_link_id = null`, still in owner's vault
+- [ ] Entries marked Discard → deleted entirely
+- [ ] Entries with no choice → kept (default)
+- [ ] Non-payer's `profile.plan` → `'free'`, `stripe_*` cleared
+- [ ] Non-payer had paid Single sub before → refund issued, row in `refunds` table with `reason='couples_separation'`
+- [ ] Both users receive in-app notification "Couples vault unlinked"
+- [ ] After finalize: A sees no link → invite UI; B sees no link → upgrade prompt
+
+---
+
+## 17. Plan management — downgrade modal (added 2026-05-26)
+
+### Couples → Single
+- [ ] On the Plan page (currently Couples), Single card button reads **"Downgrade to Single"** (not "Upgrade")
+- [ ] Click → modal opens, title "Switch to Single?"
+- [ ] Modal shows the renewal date pulled from `profile.plan_renewal` (e.g. "15 August 2026")
+- [ ] Modal "What happens with your billing" section explains the plan switches at renewal, no immediate change, no double-charge, no cash refund
+- [ ] If A has active partner link, gold-bordered "Your partner is affected" warning shows, pointing to the Couples → Unlink button
+- [ ] Click "Switch to Single →" → opens Stripe billing portal
+- [ ] In Stripe portal: select Single annual → confirm
+- [ ] Stripe shows scheduled change at renewal date (NOT immediate, NOT a new £18 charge)
+- [ ] Return to Plan page → "Current plan" badge still on Couples until renewal
+
+### Couples or Single → Free (cancel)
+- [ ] Free card button reads **"Downgrade to Free"**
+- [ ] Click → modal title "Cancel your subscription?"
+- [ ] Modal "What happens with your billing" explains access continues until renewal then auto-Free, no refund
+- [ ] Click "Cancel subscription →" → opens Stripe portal
+- [ ] Cancel in portal → returns to Plan page
+- [ ] `profile.plan_renewal` still set, `stripe_subscription_id` marked for cancellation
+- [ ] On renewal date (Stripe webhook fires): `profile.plan` → `'free'`
+
+### Upgrades — unchanged
+- [ ] Free → Single button reads **"Upgrade to Single"** → opens Stripe checkout
+- [ ] Free → Couples button reads **"Upgrade to Couples"** → opens Stripe checkout
+- [ ] Single → Couples button reads **"Upgrade to Couples"** → opens Stripe checkout
+- [ ] Test card `4242 4242 4242 4242` → success → profile updates within ~5s
+
+---
+
+## 18. RLS sanity (don't expect breakages, but worth poking)
+
+- [ ] Sign in as account A. Try to UPDATE a vault_entry where `user_id = <some other user's id>` via Supabase dashboard → should fail with RLS violation
+- [ ] Try to INSERT into `audit_log` with `user_id` set to someone else's id → should fail
+- [ ] Try to UPDATE `profiles` to change your `plan` from `single` to `couples` directly → should fail (only Stripe webhook can change plan)
+- [ ] Try to UPDATE `partner_links.couples_payer_id` directly as a user → should fail (trigger blocks it)
+- [ ] Console.log surface during normal use should have **no** `[audit_log] insert failed:` errors — that flag means the INSERT policy isn't applied
