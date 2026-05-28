@@ -1,27 +1,72 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Homepage -->
   <url>
     <loc>https://digitalrelative.co.uk/</loc>
-    <lastmod>2026-05-22</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2026-05-28</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- Core marketing pages -->
   <url>
-    <loc>https://digitalrelative.co.uk/privacy.html</loc>
-    <lastmod>2026-06-01</lastmod>
+    <loc>https://digitalrelative.co.uk/about</loc>
+    <lastmod>2026-05-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://digitalrelative.co.uk/blog</loc>
+    <lastmod>2026-05-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Blog articles -->
+  <url>
+    <loc>https://digitalrelative.co.uk/blog/first-week</loc>
+    <lastmod>2025-05-15</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://digitalrelative.co.uk/blog/digital-accounts</loc>
+    <lastmod>2025-04-22</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://digitalrelative.co.uk/blog/executor-guide</loc>
+    <lastmod>2025-03-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://digitalrelative.co.uk/blog/funeral-planning</loc>
+    <lastmod>2025-02-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Legal / policy -->
+  <url>
+    <loc>https://digitalrelative.co.uk/privacy</loc>
+    <lastmod>2026-05-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://digitalrelative.co.uk/terms.html</loc>
-    <lastmod>2026-06-01</lastmod>
+    <loc>https://digitalrelative.co.uk/terms</loc>
+    <lastmod>2026-05-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://digitalrelative.co.uk/security-policy.html</loc>
-    <lastmod>2026-06-01</lastmod>
+    <lastmod>2026-05-28</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.4</priority>
   </url>
+
 </urlset>

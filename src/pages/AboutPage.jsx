@@ -1,6 +1,28 @@
+import SEO from '../components/SEO'
+
+const ABOUT_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'About Digital Relative',
+  description: 'Why we built Digital Relative, how your data is protected with AES-256 zero-knowledge encryption, and the UK sub-processors we work with.',
+  url: 'https://digitalrelative.co.uk/about',
+  inLanguage: 'en-GB',
+  publisher: { '@type': 'Organization', name: 'Digital Relative' },
+}
+
 export default function AboutPage() {
   return (
     <div>
+      <SEO
+        title="About Digital Relative — Why We Built a UK Digital Legacy Vault"
+        description="We built Digital Relative so families can focus on each other, not admin. Zero-knowledge AES-256 encryption, UK data residency, ICO-registered, UK GDPR compliant."
+        path="/about"
+        jsonLd={ABOUT_JSON_LD}
+        breadcrumbs={[
+          { name: 'Home', path: '/' },
+          { name: 'About', path: '/about' },
+        ]}
+      />
       <div className="fade-up page-header">
         <h1 className="page-title">About Digital Relative</h1>
         <p className="page-sub">Why we built this and how it works</p>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import SEO from '../components/SEO'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function TreeMark({ size = 40 }) {
@@ -106,8 +107,24 @@ export default function LandingPage({ onLogin, onSignup, onPlan }) {
     { q: 'What if I become incapacitated rather than dying?', a: 'Your vault can be accessed by your executor if they submit a valid power of attorney document through the emergency access flow. The same 48-hour hold applies. We recommend storing your LPA details in your vault.' },
   ]
 
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  }
+
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: NAVY, color: CREAM, overflowX: 'hidden' }}>
+      <SEO
+        title="Digital Relative — Secure UK Digital Legacy Vault for Your Family"
+        description="The secure UK digital legacy vault. Store passwords, accounts, documents and final wishes in a zero-knowledge AES-256 encrypted vault your family can access when they need it. UK data residency, ICO-registered."
+        path="/"
+        jsonLd={faqJsonLd}
+      />
 
       {/* ── NAV ── */}
       <nav style={{

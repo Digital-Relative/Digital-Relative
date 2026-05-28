@@ -1,11 +1,52 @@
-User-agent: *
-# The app itself is authenticated - no useful content to index
-Disallow: /
+# robots.txt — Digital Relative
+#
+# Public marketing surface is indexable. The authenticated app, beneficiary
+# portal, emergency-access flow, admin panel, and shared-link views are
+# strictly disallowed.
 
-# Allow public legal and security pages
+User-agent: *
+
+# --- Allow: public marketing pages ---
+Allow: /$
+Allow: /about
+Allow: /blog
+Allow: /blog/
+Allow: /privacy
 Allow: /privacy.html
+Allow: /terms
 Allow: /terms.html
 Allow: /security-policy.html
+Allow: /feature-overview.html
+Allow: /technical-overview.html
+Allow: /sitemap.xml
+Allow: /robots.txt
+Allow: /favicon.svg
+Allow: /manifest.json
+Allow: /brand/
+Allow: /fonts/
+Allow: /icons.svg
 Allow: /.well-known/
+
+# --- Disallow: authenticated app & private flows ---
+Disallow: /share
+Disallow: /beneficiary
+Disallow: /emergency-access
+Disallow: /admin/
+Disallow: /admin/review
+
+# Block query-string app routes (e.g. ?page=vault, ?page=settings).
+# Wildcards are honoured by Googlebot, Bingbot, and most major crawlers.
+Disallow: /*?page=
+Disallow: /*?token=
+Disallow: /*?t=
+
+# Block build artefacts and source maps
+Disallow: /assets/
+Disallow: /*.js.map$
+Disallow: /*.css.map$
+
+# --- AI / training crawlers ---
+# Allow these to surface the marketing pages but block the app surfaces above.
+# (Same rules apply via the User-agent: * block.)
 
 Sitemap: https://digitalrelative.co.uk/sitemap.xml

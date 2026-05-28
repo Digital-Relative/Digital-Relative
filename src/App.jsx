@@ -8,6 +8,7 @@ import { pinIsSet } from './lib/vaultPin'
 import { hasSessionKey, restoreSessionKey } from './lib/crypto'
 import { supabase } from './lib/supabase'
 import Sidebar from './components/Sidebar'
+import MarketingShell from './components/MarketingShell'
 import VaultLocked from './components/VaultLocked'
 import VaultPinSetup from './components/VaultPinSetup'
 import MfaSetup from './components/MfaSetup'
@@ -64,6 +65,19 @@ const isBeneficiaryRoute = window.location.pathname === '/beneficiary' &&
 const isShareRoute = window.location.pathname === '/share' && new URLSearchParams(window.location.search).has('t')
 const isEmergencyRoute = window.location.pathname === '/emergency-access'
 const isAdminRoute = window.location.pathname === '/admin/review'
+
+// Public marketing routes — render outside auth flow so they're crawlable
+// and prerender-friendly. Authenticated users can still reach the same
+// page components via the in-app `?page=` navigation.
+function getMarketingRoute() {
+  const p = window.location.pathname.replace(/\/$/, '') || '/'
+  if (p === '/about') return { kind: 'about' }
+  if (p === '/blog')  return { kind: 'blog' }
+  const blogMatch = p.match(/^\/blog\/([a-z0-9-]+)$/)
+  if (blogMatch) return { kind: 'blog', slug: blogMatch[1] }
+  return null
+}
+const marketingRoute = getMarketingRoute()
 
 function AppInner() {
   const { user, profile, loading, transitioning, signOut, fetchProfile } = useAuth()
@@ -312,6 +326,22 @@ function AppInner() {
 }
 
 export default function App() {
+  // Marketing routes: render the standalone marketing-shelled page. No auth
+  // required, no AuthProvider — these pages are public and indexable.
+  if (marketingRoute) {
+    const activePath = marketingRoute.kind === 'about' ? '/about' : '/blog'
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
+          <MarketingShell activePath={activePath}>
+            {marketingRoute.kind === 'about' && <AboutPage />}
+            {marketingRoute.kind === 'blog' && <BlogPage initialArticleId={marketingRoute.slug} />}
+          </MarketingShell>
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
   if (isEmergencyRoute) {
     return (
       <ErrorBoundary>

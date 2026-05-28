@@ -1,21 +1,119 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary meta -->
+    <title>Digital Relative — Secure UK Digital Legacy Vault for Your Family</title>
+    <meta name="description" content="Digital Relative is the secure UK digital legacy vault. Store passwords, accounts, documents and final wishes in a zero-knowledge encrypted vault your family can access when they need it. AES-256, UK data residency, ICO-registered." />
+    <meta name="keywords" content="digital legacy, digital will UK, digital vault, password vault for family, digital estate planning UK, secure legacy vault, dead man's switch, beneficiary access, after I'm gone, UK GDPR digital estate" />
+    <meta name="author" content="Digital Relative" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://digitalrelative.co.uk/" />
+
+    <!-- Search engine verification (paste codes from Google Search Console / Bing Webmaster) -->
+    <!-- <meta name="google-site-verification" content="REPLACE_WITH_GSC_CODE" /> -->
+    <!-- <meta name="msvalidate.01" content="REPLACE_WITH_BING_CODE" /> -->
+
+    <!-- Icons & PWA -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/icon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0d1b2a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Digital Relative" />
-    <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Digital Relative — the secure digital legacy vault for UK families. Store passwords, accounts, and documents so your family can access what they need when they need it." />
-    <meta property="og:title" content="Digital Relative" />
-    <meta property="og:description" content="Protect what matters. Store your passwords, accounts, and final wishes in an encrypted vault your family can access when they need it." />
-    <meta property="og:image" content="/brand/logo.svg" />
-    <title>Digital Relative</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Digital Relative" />
+    <meta property="og:title" content="Digital Relative — Secure UK Digital Legacy Vault" />
+    <meta property="og:description" content="Store passwords, accounts, documents and final wishes in a zero-knowledge encrypted vault your family can access when they need it. UK data residency, AES-256." />
+    <meta property="og:url" content="https://digitalrelative.co.uk/" />
+    <meta property="og:locale" content="en_GB" />
+    <!-- TODO: drop a 1200×630 PNG at public/brand/og-image.png. Until then,
+         social previews fall back to the auto-discovered favicon.
+         You can generate one with: `npm run og-image` (requires puppeteer). -->
+    <meta property="og:image" content="https://digitalrelative.co.uk/brand/og-image.png" />
+    <meta property="og:image:alt" content="Digital Relative — Secure UK Digital Legacy Vault" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Digital Relative — Secure UK Digital Legacy Vault" />
+    <meta name="twitter:description" content="Store passwords, accounts, documents and final wishes in a zero-knowledge encrypted vault your family can access when they need it." />
+    <meta name="twitter:image" content="https://digitalrelative.co.uk/brand/og-image.png" />
+    <meta name="twitter:image:alt" content="Digital Relative — Secure UK Digital Legacy Vault" />
+
+    <!-- Performance hints -->
+    <link rel="preconnect" href="https://xqmgfyfqeehjvjxbezgx.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://js.stripe.com" />
+    <link rel="dns-prefetch" href="https://api.addressnow.co.uk" />
+
+    <!-- Sitemap discovery -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+    <!-- Structured data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Digital Relative",
+      "url": "https://digitalrelative.co.uk/",
+      "logo": "https://digitalrelative.co.uk/brand/og-image.png",
+      "email": "support@digitalrelative.co.uk",
+      "areaServed": "GB",
+      "description": "Secure UK digital legacy vault. Store passwords, accounts, documents and final wishes for your family.",
+      "address": { "@type": "PostalAddress", "addressCountry": "GB" },
+      "contactPoint": [{
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "support@digitalrelative.co.uk",
+        "availableLanguage": ["en-GB"]
+      }]
+    }
+    </script>
+
+    <!-- Structured data: WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Digital Relative",
+      "url": "https://digitalrelative.co.uk/",
+      "inLanguage": "en-GB",
+      "publisher": { "@type": "Organization", "name": "Digital Relative" }
+    }
+    </script>
+
+    <!-- Structured data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Digital Relative",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Web",
+      "url": "https://digitalrelative.co.uk/",
+      "description": "Zero-knowledge encrypted digital legacy vault for UK families. Store passwords, accounts, documents and final wishes for nominated beneficiaries.",
+      "offers": [
+        { "@type": "Offer", "name": "Single", "priceCurrency": "GBP", "category": "subscription" },
+        { "@type": "Offer", "name": "Couples", "priceCurrency": "GBP", "category": "subscription" }
+      ],
+      "featureList": [
+        "AES-256-GCM zero-knowledge encryption",
+        "UK data residency (Supabase London)",
+        "Two-factor authentication",
+        "Inactivity auto-lock",
+        "Beneficiary check-in protection",
+        "Identity verification before release",
+        "ICO-registered, UK GDPR compliant"
+      ]
+    }
+    </script>
   </head>
   <body>
   <a href="#root" class="skip-link">Skip to main content</a>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SEO from '../components/SEO'
 
 const ARTICLES = [
   {
@@ -56,8 +57,35 @@ const ARTICLES = [
 ]
 
 function ArticleView({ article, onBack }) {
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: article.excerpt,
+    datePublished: article.date,
+    author: { '@type': 'Organization', name: 'Digital Relative' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Digital Relative',
+      logo: { '@type': 'ImageObject', url: 'https://digitalrelative.co.uk/brand/logo.svg' },
+    },
+    mainEntityOfPage: `https://digitalrelative.co.uk/blog/${article.id}`,
+    inLanguage: 'en-GB',
+  }
   return (
     <div>
+      <SEO
+        title={`${article.title} — Digital Relative`}
+        description={article.excerpt}
+        path={`/blog/${article.id}`}
+        ogType="article"
+        jsonLd={articleJsonLd}
+        breadcrumbs={[
+          { name: 'Home', path: '/' },
+          { name: 'Resources', path: '/blog' },
+          { name: article.title, path: `/blog/${article.id}` },
+        ]}
+      />
       <button onClick={onBack} className="btn-ghost" style={{ marginBottom: 20, fontSize: 13 }}>
         ← Back to blog
       </button>
@@ -80,15 +108,48 @@ function ArticleView({ article, onBack }) {
   )
 }
 
-export default function BlogPage() {
-  const [activeArticle, setActiveArticle] = useState(null)
+export default function BlogPage({ initialArticleId }) {
+  const initial = initialArticleId ? ARTICLES.find(a => a.id === initialArticleId) : null
+  const [activeArticle, setActiveArticle] = useState(initial || null)
 
   if (activeArticle) {
-    return <ArticleView article={activeArticle} onBack={() => setActiveArticle(null)} />
+    return <ArticleView article={activeArticle} onBack={() => {
+      setActiveArticle(null)
+      if (window.location.pathname.startsWith('/blog/')) {
+        window.history.pushState({}, '', '/blog')
+      }
+    }} />
+  }
+
+  const blogListJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: 'Digital Relative Resources',
+    description: 'Practical guides for life admin, estate planning, and digital legacy in the UK.',
+    url: 'https://digitalrelative.co.uk/blog',
+    inLanguage: 'en-GB',
+    publisher: { '@type': 'Organization', name: 'Digital Relative' },
+    blogPost: ARTICLES.map(a => ({
+      '@type': 'BlogPosting',
+      headline: a.title,
+      datePublished: a.date,
+      url: `https://digitalrelative.co.uk/blog/${a.id}`,
+      description: a.excerpt,
+    })),
   }
 
   return (
     <div>
+      <SEO
+        title="Resources — Practical Guides for UK Estate Planning & Digital Legacy | Digital Relative"
+        description="Practical guides for life admin and estate planning in the UK: what to do after a bereavement, digital accounts after death, being an executor, funeral planning, and more."
+        path="/blog"
+        jsonLd={blogListJsonLd}
+        breadcrumbs={[
+          { name: 'Home', path: '/' },
+          { name: 'Resources', path: '/blog' },
+        ]}
+      />
       <div className="fade-up page-header">
         <h1 className="page-title">Resources</h1>
         <p className="page-sub">Practical guides for life admin and estate planning</p>
@@ -96,8 +157,18 @@ export default function BlogPage() {
 
       <div className="fade-up-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {ARTICLES.map(article => (
-          <div key={article.id} className="card-static" style={{ cursor: 'pointer' }}
-            onClick={() => setActiveArticle(article)}>
+          <a
+            key={article.id}
+            href={`/blog/${article.id}`}
+            className="card-static"
+            style={{ cursor: 'pointer', display: 'block', textDecoration: 'none', color: 'inherit' }}
+            onClick={(e) => {
+              // Intra-app: don't full-page-load, just open the article view.
+              e.preventDefault()
+              setActiveArticle(article)
+              window.history.pushState({}, '', `/blog/${article.id}`)
+            }}
+          >
             <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 8 }}>
               {article.date} · {article.readTime}
             </div>
@@ -108,7 +179,7 @@ export default function BlogPage() {
               {article.excerpt}
             </p>
             <span style={{ fontSize: 13, color: 'var(--gold)' }}>Read more →</span>
-          </div>
+          </a>
         ))}
       </div>
     </div>
